@@ -258,7 +258,6 @@
   }
   .kb-key {
     flex: 1;
-    max-width: 36px;
     height: 44px;
     background: #2a2a2a;
     border: none;
@@ -271,16 +270,21 @@
     text-transform: uppercase;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
+    min-width: 0;
   }
   .kb-key:active { background: #555; transform: scale(0.93); }
-  .kb-key.wide { max-width: 56px; font-size: 0.7rem; letter-spacing: 0; }
+  .kb-key.wide { flex: 1.5; font-size: 0.7rem; letter-spacing: 0; }
 
   /* ── Mobile layout ── */
   @media (max-width: 600px) {
-    body { padding-bottom: 175px; }
-    #timer { font-size: 2.2rem; top: 14px; }
-    #game-title { font-size: 1.1rem; top: 16px; }
-    #word-count { font-size: 0.75rem; top: 40px; }
+    body {
+      justify-content: flex-start;
+      padding-top: 90px;
+      padding-bottom: 185px;
+    }
+    #timer { font-size: 2rem; top: 16px; }
+    #game-title { font-size: 1rem; top: 18px; left: 16px; }
+    #word-count { font-size: 0.72rem; top: 42px; left: 16px; }
     .letter-box { width: 52px; height: 52px; font-size: 1.6rem; }
     .solved-letter { width: 32px; height: 32px; font-size: 0.9rem; }
     #boxes-row { gap: 8px; margin-bottom: 16px; }
@@ -288,6 +292,8 @@
     .feedback-square { width: 52px; }
     button { padding: 10px 20px; font-size: 0.9rem; }
     .time-bonus { font-size: 1.3rem; top: 65px; }
+    #keyboard { padding: 8px 8px 24px; gap: 6px; }
+    .kb-row { gap: 4px; max-width: 100%; }
   }
 
   /* ── Status / invalid message ── */
