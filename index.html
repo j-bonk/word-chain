@@ -235,24 +235,41 @@
   }
 
   /* ── On-screen keyboard ── */
-  /* ── Mobile layout ── */
+  /* ── Mobile layout (<600px = phones) ── */
   @media (max-width: 600px) {
     body {
       justify-content: flex-start;
-      padding-top: 75px;
+      padding-top: 72px;
     }
-    #timer { font-size: 1.8rem; top: 14px; }
-    #game-title { font-size: 0.95rem; top: 16px; left: 14px; }
-    #word-count { font-size: 0.7rem; top: 38px; left: 14px; }
-    .letter-box { width: 52px; height: 52px; font-size: 1.6rem; }
-    .solved-letter { width: 30px; height: 30px; font-size: 0.85rem; }
-    #boxes-row { gap: 8px; margin-bottom: 14px; }
-    #chain-row { margin-bottom: 14px; min-height: 40px; }
-    #feedback-row { margin-bottom: 4px; }
-    .feedback-square { width: 52px; }
-    #status { margin-bottom: 12px; }
-    button { padding: 10px 20px; font-size: 0.9rem; }
-    .time-bonus { font-size: 1.2rem; top: 60px; }
+
+    /* Header */
+    #game-title { font-size: 1rem;  top: 16px; left: 14px; letter-spacing: 4px; }
+    #timer      { font-size: 1.9rem; top: 13px; }
+    #word-count { font-size: 0.7rem; top: 40px; left: 14px; }
+
+    /* Game tiles — use vw so they scale with any phone width */
+    .letter-box     { width: 11.5vw; height: 11.5vw; font-size: 5vw; border-radius: 6px; }
+    .solved-letter  { width: 7.5vw;  height: 7.5vw;  font-size: 3.2vw; }
+    .feedback-square { width: 11.5vw; }
+
+    /* Spacing */
+    #boxes-row  { gap: 2vw; margin-bottom: 3vw; }
+    #chain-row  { gap: 1.5vw; margin-bottom: 3vw; min-height: 8vw; }
+    #feedback-row { gap: 2vw; margin-bottom: 1.5vw; }
+    #status     { margin-bottom: 3vw; font-size: 0.8rem; }
+
+    /* Buttons */
+    button { padding: 10px 22px; font-size: 0.88rem; }
+
+    /* +30s popup */
+    .time-bonus { font-size: 1.2rem; top: 58px; }
+
+    /* Instructions — tiles scale down, example wraps if needed */
+    .instr-block  { max-width: 100%; }
+    .instr-ex-letter { width: 7vw; height: 7vw; font-size: 2.8vw; border-radius: 4px; }
+    .instr-ex-word   { gap: 2px; }
+    .instr-example   { gap: 4px; }
+    .instr-ex-arrow  { font-size: 0.9rem; }
   }
 
   /* ── Status / invalid message ── */
@@ -350,6 +367,8 @@
     gap: 20px;
     z-index: 500;
     padding: 24px;
+    box-sizing: border-box;
+    overflow-y: auto;
   }
   #instructions-screen.show { display: flex; }
   #instructions-title {
@@ -399,6 +418,7 @@
     align-items: center;
     gap: 6px;
     justify-content: center;
+    flex-wrap: wrap;
   }
   .instr-ex-word {
     display: flex;
@@ -1491,11 +1511,6 @@ function shakeBoxes() {
 // WORD SOLVED ANIMATION
 // ═══════════════════════════════════════════
 function animateSolved(word) {
-  // Flash screen
-  flashEl.classList.remove("go");
-  void flashEl.offsetWidth;
-  flashEl.classList.add("go");
-
   // Add arrow connector if not first word
   if (wordIndex > 0) {
     const arrow = document.createElement("div");
