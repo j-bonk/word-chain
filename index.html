@@ -234,6 +234,62 @@
     height: 0;
   }
 
+  /* ── On-screen keyboard ── */
+  #keyboard {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 8px 6px 20px;
+    background: #111;
+    border-top: 1px solid #222;
+    z-index: 50;
+    flex-direction: column;
+    gap: 7px;
+    align-items: center;
+  }
+  .kb-row {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+    width: 100%;
+    max-width: 420px;
+  }
+  .kb-key {
+    flex: 1;
+    max-width: 36px;
+    height: 44px;
+    background: #2a2a2a;
+    border: none;
+    border-radius: 5px;
+    color: #f0f0f0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem;
+    font-weight: bold;
+    cursor: pointer;
+    text-transform: uppercase;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .kb-key:active { background: #555; transform: scale(0.93); }
+  .kb-key.wide { max-width: 56px; font-size: 0.7rem; letter-spacing: 0; }
+
+  /* ── Mobile layout ── */
+  @media (max-width: 600px) {
+    body { padding-bottom: 175px; }
+    #timer { font-size: 2.2rem; top: 14px; }
+    #game-title { font-size: 1.1rem; top: 16px; }
+    #word-count { font-size: 0.75rem; top: 40px; }
+    .letter-box { width: 52px; height: 52px; font-size: 1.6rem; }
+    .solved-letter { width: 32px; height: 32px; font-size: 0.9rem; }
+    #boxes-row { gap: 8px; margin-bottom: 16px; }
+    #chain-row { margin-bottom: 18px; }
+    .feedback-square { width: 52px; }
+    button { padding: 10px 20px; font-size: 0.9rem; }
+    .time-bonus { font-size: 1.3rem; top: 65px; }
+  }
+
   /* ── Status / invalid message ── */
   #status {
     height: 24px;
@@ -502,7 +558,19 @@
 </div>
 <button id="btn-how" onclick="showInstructions()">How to Play</button>
 
-<input id="hidden-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+<input id="hidden-input" type="text" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+
+<div id="keyboard">
+  <div class="kb-row">
+    <button class="kb-key" data-key="q">Q</button><button class="kb-key" data-key="w">W</button><button class="kb-key" data-key="e">E</button><button class="kb-key" data-key="r">R</button><button class="kb-key" data-key="t">T</button><button class="kb-key" data-key="y">Y</button><button class="kb-key" data-key="u">U</button><button class="kb-key" data-key="i">I</button><button class="kb-key" data-key="o">O</button><button class="kb-key" data-key="p">P</button>
+  </div>
+  <div class="kb-row">
+    <button class="kb-key" data-key="a">A</button><button class="kb-key" data-key="s">S</button><button class="kb-key" data-key="d">D</button><button class="kb-key" data-key="f">F</button><button class="kb-key" data-key="g">G</button><button class="kb-key" data-key="h">H</button><button class="kb-key" data-key="j">J</button><button class="kb-key" data-key="k">K</button><button class="kb-key" data-key="l">L</button>
+  </div>
+  <div class="kb-row">
+    <button class="kb-key wide" data-key="Enter">GO</button><button class="kb-key" data-key="z">Z</button><button class="kb-key" data-key="x">X</button><button class="kb-key" data-key="c">C</button><button class="kb-key" data-key="v">V</button><button class="kb-key" data-key="b">B</button><button class="kb-key" data-key="n">N</button><button class="kb-key" data-key="m">M</button><button class="kb-key wide" data-key="Backspace">⌫</button>
+  </div>
+</div>
 
 <div id="end-screen">
   <div id="end-title">CHAIN COMPLETE</div>
@@ -1634,6 +1702,24 @@ document.addEventListener("keydown", e => {
 boxesRow.addEventListener("click", () => { if (gameActive) hiddenInput.focus(); });
 
 // ═══════════════════════════════════════════
+// ON-SCREEN KEYBOARD
+// ═══════════════════════════════════════════
+const keyboardEl = document.getElementById("keyboard");
+const isMobile = () => window.innerWidth <= 600 || navigator.maxTouchPoints > 0;
+
+document.querySelectorAll(".kb-key").forEach(btn => {
+  btn.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    if (!gameActive) return;
+    handleKey(btn.dataset.key);
+    resetIdle();
+  });
+});
+
+function showKeyboard() { keyboardEl.style.display = "flex"; }
+function hideKeyboard() { keyboardEl.style.display = "none"; }
+
+// ═══════════════════════════════════════════
 // END GAME
 // ═══════════════════════════════════════════
 function endGame(won) {
@@ -1685,6 +1771,7 @@ function resetToStart() {
   timerEl.textContent   = "2:00";
   timerEl.className     = "";
   timerEl.style.display = "none";
+  hideKeyboard();
   wordIndex    = 0;
   timerSeconds = TIMER_START;
   currentInput = "";
@@ -1756,6 +1843,7 @@ function startGame(resumeState) {
   timerEl.className     = "";
   timerEl.textContent   = formatTime(timerSeconds);
   timerEl.style.display = "block";
+  if (isMobile()) showKeyboard();
   wordCount.textContent = `WORD ${wordIndex + 1} / 3`;
 
   // Rebuild solved chain if resuming
