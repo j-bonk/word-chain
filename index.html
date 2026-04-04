@@ -1,0 +1,1930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chain — Daily Word Game</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d0d0d;
+    color: #f0f0f0;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* ── Timer ── */
+  #timer {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 3rem;
+    font-weight: bold;
+    letter-spacing: 3px;
+    color: #f0f0f0;
+    transition: color 0.3s;
+    z-index: 10;
+    display: none;
+  }
+  #timer.warn   { color: #f5c542; }
+  #timer.danger { color: #e74c3c; animation: pulse 0.6s infinite alternate; }
+
+  .time-bonus {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #27ae60;
+    font-size: 1.6rem;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
+    pointer-events: none;
+    z-index: 20;
+    animation: bonus-float 3s ease-out forwards;
+  }
+  @keyframes bonus-float {
+    0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    70%  { opacity: 1; transform: translateX(-50%) translateY(-20px); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-45px); }
+  }
+
+  @keyframes pulse {
+    from { opacity: 1; }
+    to   { opacity: 0.4; }
+  }
+
+  /* ── Solved chain row ── */
+  #chain-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 52px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .solved-word {
+    display: flex;
+    gap: 4px;
+    animation: slam-in 0.35s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+  }
+
+  @keyframes slam-in {
+    from { transform: translateY(80px) scale(0.6); opacity: 0; }
+    to   { transform: translateY(0)    scale(1);   opacity: 1; }
+  }
+
+  .solved-letter {
+    width: 38px;
+    height: 38px;
+    background: #27ae60;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #fff;
+    text-transform: uppercase;
+  }
+
+  .chain-arrow {
+    font-size: 1.4rem;
+    color: #555;
+    animation: arrow-pop 0.3s ease both;
+  }
+  @keyframes arrow-pop {
+    from { transform: scale(0); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+
+  /* ── Feedback squares ── */
+  #feedback-row {
+    display: flex;
+    gap: 10px;
+    min-height: 18px;
+    margin-bottom: 6px;
+  }
+
+  .feedback-square {
+    width: 62px;
+    height: 18px;
+    border-radius: 4px;
+    animation: pop-in 0.15s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+  }
+  @keyframes pop-in {
+    from { transform: scaleY(0); opacity: 0; }
+    to   { transform: scaleY(1); opacity: 1; }
+  }
+
+  .fb-green  { background: #27ae60; box-shadow: 0 0 10px #27ae6088; }
+  .fb-yellow { background: #f39c12; box-shadow: 0 0 10px #f39c1288; }
+  .fb-red    { background: #e74c3c; box-shadow: 0 0 10px #e74c3c88; }
+
+  .feedback-square.fade-out {
+    animation: fade-out 0.3s ease forwards;
+  }
+  @keyframes fade-out {
+    to { opacity: 0; transform: scaleY(0); }
+  }
+
+  /* ── Gold completion ── */
+  .solved-letter.gold {
+    background: #f1c40f;
+    color: #1a1000;
+    animation: gold-hit 0.25s cubic-bezier(0.2, 1.8, 0.4, 1) both,
+               gold-pulse 1s ease 0.25s infinite alternate;
+  }
+  @keyframes gold-hit {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.35); }
+    100% { transform: scale(1); }
+  }
+  @keyframes gold-pulse {
+    from { box-shadow: 0 0 10px #f1c40f88; }
+    to   { box-shadow: 0 0 28px #f1c40f, 0 0 55px #f1c40f66; }
+  }
+  #flash.gold-flash { background: #f1c40f; }
+
+  /* ── Particles ── */
+  .particle {
+    position: fixed;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #f1c40f;
+    pointer-events: none;
+    z-index: 300;
+    animation: particle-burst 0.55s ease-out forwards;
+  }
+  .particle.spark {
+    width: 3px;
+    height: 10px;
+    border-radius: 2px;
+    background: #fff7a0;
+  }
+  @keyframes particle-burst {
+    from { transform: translate(-50%, -50%) translate(0, 0); opacity: 1; }
+    to   { transform: translate(-50%, -50%) translate(var(--tx), var(--ty)); opacity: 0; }
+  }
+
+  /* ── Letter boxes ── */
+  #boxes-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .letter-box {
+    width: 62px;
+    height: 62px;
+    border: 2px solid #333;
+    border-radius: 8px;
+    background: #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: #f0f0f0;
+    transition: border-color 0.15s;
+    position: relative;
+  }
+
+  .letter-box.active  { border-color: #555; }
+  .letter-box.filled  { border-color: #888; }
+  .letter-box.locked  { border-color: #27ae60; color: #27ae60; }
+  .letter-box.ghost   { border-color: #1e5c35; color: #2ecc71; opacity: 0.45; }
+
+  .letter-box.shake {
+    animation: shake 0.35s ease;
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%      { transform: translateX(-8px); }
+    40%      { transform: translateX(8px); }
+    60%      { transform: translateX(-6px); }
+    80%      { transform: translateX(6px); }
+  }
+
+  .letter-box.pop {
+    animation: letter-pop 0.12s ease;
+  }
+  @keyframes letter-pop {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.22); }
+    100% { transform: scale(1); }
+  }
+
+  /* ── Hidden input ── */
+  #hidden-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  /* ── Status / invalid message ── */
+  #status {
+    height: 24px;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    color: #e74c3c;
+    text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 16px;
+    transition: opacity 0.2s;
+  }
+
+  /* ── Buttons ── */
+  #btn-row {
+    display: flex;
+    gap: 16px;
+  }
+
+  button {
+    padding: 12px 32px;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: transform 0.1s, opacity 0.1s;
+  }
+  button:active { transform: scale(0.95); }
+
+  #btn-start   { background: #27ae60; color: #fff; }
+  #btn-giveup  { background: #2c2c2c; color: #aaa; border: 1px solid #444; display: none; }
+  #btn-restart { background: #f1c40f; color: #1a1000; border: none; display: none; }
+
+  /* ── End screen overlay ── */
+  #end-screen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.88);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 100;
+  }
+  #end-screen.show { display: flex; }
+  #end-title { font-size: 2.2rem; font-weight: bold; letter-spacing: 3px; }
+  #end-time  { font-size: 3.5rem; font-weight: bold; color: #27ae60; }
+  #end-sub   { font-size: 0.9rem; color: #888; letter-spacing: 2px; }
+  #end-stats {
+    display: flex;
+    gap: 32px;
+    margin-top: 4px;
+  }
+  .end-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .end-stat-val  { font-size: 1.8rem; font-weight: bold; color: #f0f0f0; }
+  .end-stat-val.record { color: #f1c40f; }
+  .end-stat-label { font-size: 0.7rem; color: #555; letter-spacing: 2px; text-transform: uppercase; }
+
+  /* ── Give up overlay ── */
+  #giveup-screen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    z-index: 100;
+  }
+  #giveup-screen.show { display: flex; }
+  #giveup-title { font-size: 1.1rem; color: #888; letter-spacing: 3px; text-transform: uppercase; }
+  #giveup-chain { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center; }
+
+  /* ── Instructions overlay ── */
+  #instructions-screen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.94);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 500;
+    padding: 24px;
+  }
+  #instructions-screen.show { display: flex; }
+  #instructions-title {
+    font-size: 1.4rem;
+    font-weight: bold;
+    letter-spacing: 4px;
+    color: #f0f0f0;
+    text-transform: uppercase;
+  }
+  .instr-block {
+    max-width: 360px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .instr-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    font-size: 0.88rem;
+    color: #bbb;
+    line-height: 1.5;
+  }
+  .instr-icon {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.8rem;
+  }
+  .instr-icon.green  { background: #27ae60; color: #fff; }
+  .instr-icon.yellow { background: #f39c12; color: #fff; }
+  .instr-icon.red    { background: #e74c3c; color: #fff; }
+  .instr-icon.ghost  { background: #1a1a1a; border: 1px solid #1e5c35; color: #2ecc71; opacity: 0.7; }
+  .instr-divider {
+    border: none;
+    border-top: 1px solid #2a2a2a;
+    width: 100%;
+  }
+  .instr-example {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+  }
+  .instr-ex-word {
+    display: flex;
+    gap: 3px;
+  }
+  .instr-ex-letter {
+    width: 30px;
+    height: 30px;
+    border-radius: 5px;
+    background: #27ae60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.85rem;
+    color: #fff;
+  }
+  .instr-ex-arrow { color: #555; font-size: 1.1rem; }
+  #btn-lets-play {
+    background: #27ae60;
+    color: #fff;
+    padding: 13px 40px;
+    font-size: 1rem;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    letter-spacing: 1px;
+    margin-top: 6px;
+  }
+
+  /* ── How to Play button ── */
+  #btn-how {
+    margin-top: 12px;
+    background: none;
+    border: none;
+    color: #444;
+    font-size: 0.78rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    padding: 4px 8px;
+    transition: color 0.2s;
+  }
+  #btn-how:hover { color: #888; }
+
+  /* ── Idle overlay ── */
+  #idle-screen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 100;
+  }
+  #idle-screen.show { display: flex; }
+  #idle-screen p { font-size: 1.4rem; color: #aaa; }
+  #btn-resume { background: #27ae60; color: #fff; padding: 14px 40px; font-size: 1.1rem; border-radius: 8px; border: none; cursor: pointer; font-family: 'Courier New', monospace; font-weight: bold; letter-spacing: 1px; }
+
+  /* ── Screen flash on correct word ── */
+  #flash {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    background: #27ae60;
+    opacity: 0;
+    z-index: 200;
+  }
+  #flash.go {
+    animation: screen-flash 0.35s ease forwards;
+  }
+  @keyframes screen-flash {
+    0%   { opacity: 0.35; }
+    100% { opacity: 0; }
+  }
+
+  /* game title */
+  #game-title {
+    position: fixed;
+    top: 20px;
+    left: 28px;
+    font-size: 1.4rem;
+    font-weight: bold;
+    letter-spacing: 6px;
+    color: #f0f0f0;
+    text-transform: uppercase;
+    z-index: 10;
+  }
+
+  /* word count indicator */
+  #word-count {
+    position: fixed;
+    top: 48px;
+    left: 28px;
+    font-size: 0.85rem;
+    color: #555;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<div id="flash"></div>
+<div id="game-title">Chain</div>
+<div id="timer">2:00</div>
+<div id="word-count"></div>
+
+<div id="chain-row"></div>
+<div id="feedback-row"></div>
+<div id="boxes-row"></div>
+<div id="status"></div>
+<div id="btn-row">
+  <button id="btn-start">Start</button>
+  <button id="btn-giveup">Give Up</button>
+  <button id="btn-restart">Play Again</button>
+</div>
+<button id="btn-how" onclick="showInstructions()">How to Play</button>
+
+<input id="hidden-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+
+<div id="end-screen">
+  <div id="end-title">CHAIN COMPLETE</div>
+  <div id="end-time"></div>
+  <div id="end-sub">ALL 3 WORDS SOLVED</div>
+  <div id="end-stats">
+    <div class="end-stat">
+      <div class="end-stat-val" id="end-streak"></div>
+      <div class="end-stat-label">Day Streak</div>
+    </div>
+    <div class="end-stat">
+      <div class="end-stat-val" id="end-best"></div>
+      <div class="end-stat-label">Best Time</div>
+    </div>
+  </div>
+  <div id="end-record-msg" style="font-size:0.8rem;color:#f1c40f;letter-spacing:2px;text-transform:uppercase;min-height:18px;"></div>
+  <button onclick="restartGame()" style="background:#27ae60;color:#fff;padding:14px 40px;font-size:1rem;border-radius:8px;border:none;cursor:pointer;font-family:'Courier New',monospace;font-weight:bold;letter-spacing:1px;margin-top:6px;">PLAY AGAIN</button>
+</div>
+
+<div id="giveup-screen">
+  <div id="giveup-title">TODAY'S WORDS WERE</div>
+  <div id="giveup-chain"></div>
+  <button onclick="resetToStart()" style="background:#2c2c2c;color:#aaa;border:1px solid #444;padding:12px 32px;font-size:1rem;border-radius:8px;cursor:pointer;font-family:'Courier New',monospace;font-weight:bold;letter-spacing:1px;margin-top:8px;">OK</button>
+</div>
+
+<div id="instructions-screen">
+  <div id="instructions-title">How to Play</div>
+  <div class="instr-block">
+    <div class="instr-row">
+      <div class="instr-icon green">→</div>
+      <span>Guess <strong style="color:#f0f0f0">3 words</strong> in a chain. The last letter of each word must be the first letter of the next.</span>
+    </div>
+    <div class="instr-example">
+      <div class="instr-ex-word">
+        <div class="instr-ex-letter">F</div><div class="instr-ex-letter">A</div><div class="instr-ex-letter">R</div><div class="instr-ex-letter" style="background:#3498db">M</div>
+      </div>
+      <div class="instr-ex-arrow">→</div>
+      <div class="instr-ex-word">
+        <div class="instr-ex-letter" style="background:#3498db">M</div><div class="instr-ex-letter">A</div><div class="instr-ex-letter">K</div><div class="instr-ex-letter" style="background:#9b59b6">E</div>
+      </div>
+      <div class="instr-ex-arrow">→</div>
+      <div class="instr-ex-word">
+        <div class="instr-ex-letter" style="background:#9b59b6">E</div><div class="instr-ex-letter">D</div><div class="instr-ex-letter">I</div><div class="instr-ex-letter">T</div>
+      </div>
+    </div>
+    <hr class="instr-divider" />
+    <div class="instr-row">
+      <div class="instr-icon green">A</div>
+      <span><strong style="color:#27ae60">Green</strong> — right letter, right spot</span>
+    </div>
+    <div class="instr-row">
+      <div class="instr-icon yellow">A</div>
+      <span><strong style="color:#f39c12">Yellow</strong> — right letter, wrong spot</span>
+    </div>
+    <div class="instr-row">
+      <div class="instr-icon red">A</div>
+      <span><strong style="color:#e74c3c">Red</strong> — letter not in the word</span>
+    </div>
+    <div class="instr-row">
+      <div class="instr-icon ghost">A</div>
+      <span><strong style="color:#2ecc71">Ghost hint</strong> — a faint letter appears in two cases: you confirmed its exact position in a prior guess, or it's the required first letter of the next chained word. Either way, you still type all 4 letters yourself.</span>
+    </div>
+    <hr class="instr-divider" />
+    <div class="instr-row">
+      <div class="instr-icon" style="background:#1a1a1a;border:1px solid #333;color:#555;font-size:0.7rem;">⏱</div>
+      <span>You have <strong style="color:#f0f0f0">2 minutes</strong>. Each correct word adds <strong style="color:#27ae60">+30s</strong>. Don't let the clock hit zero.</span>
+    </div>
+  </div>
+  <button id="btn-lets-play" onclick="dismissInstructions()">Let's Play</button>
+</div>
+
+<div id="idle-screen">
+  <p>STILL THERE?</p>
+  <button id="btn-resume">RESUME</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// WORD LISTS
+// ═══════════════════════════════════════════
+
+const VALID_WORDS = new Set([
+  "aahs","aals","abac","abas","abba","abbe","abbs","abed","abet","abid",
+  "able","ably","abos","abri","abut","abye","abys","acai","acca","aced",
+  "acer","aces","ache","achy","acid","acme","acne","acre","acta","acts",
+  "acyl","adaw","adds","addy","adit","ados","adry","adze","aeon","aero",
+  "aery","aesc","afar","affy","afro","agar","agas","aged","agee","agen",
+  "ager","ages","agha","agin","agio","aglu","agly","agma","agog","agon",
+  "ague","ahed","ahem","ahis","ahoy","aias","aide","aids","aiga","ails",
+  "aims","aine","ains","airn","airs","airt","airy","aits","aitu","ajar",
+  "ajee","aked","akee","akes","akin","alae","alan","alap","alar","alas",
+  "alay","alba","albe","albs","alco","alec","alee","alef","ales","alew",
+  "alfa","alfs","alga","alif","alit","alko","alky","alls","ally","alma",
+  "alme","alms","alod","aloe","alow","alps","also","alto","alts","alum",
+  "amah","amas","ambo","amen","amia","amid","amie","amin","amir","amis",
+  "amla","ammo","amok","amps","amus","amyl","anal","anan","anas","ance",
+  "ands","anes","anew","anga","anil","anis","ankh","anna","anno","anns",
+  "anoa","anon","anow","ansa","anta","ante","anti","ants","anus","apay",
+  "aped","aper","apes","apex","apod","apos","apps","apse","apso","apts",
+  "aqua","arak","arar","arba","arbs","arch","arco","arcs","ards","area",
+  "ared","areg","ares","aret","arew","arfs","aria","arid","aril","aris",
+  "arks","arle","arms","army","arna","arow","arpa","arse","arsy","arti",
+  "arts","arty","arum","arvo","aryl","asar","asci","asea","ashy","asks",
+  "asps","atap","ates","atma","atoc","atok","atom","atop","atua","aufs",
+  "auks","aula","auld","aune","aunt","aura","auto","aval","avas","avel",
+  "aver","aves","avid","avos","avow","away","awdl","awed","awee","awes",
+  "awls","awns","awny","awol","awry","axal","axed","axel","axes","axil",
+  "axis","axle","axon","ayah","ayes","ayin","ayre","ayus","azan","azon",
+  "azym","baal","baas","baba","babe","babu","baby","bach","back","bacs",
+  "bade","bads","bael","baff","baft","bagh","bags","baht","bail","bait",
+  "baju","bake","bald","bale","balk","ball","balm","bals","balu","bams",
+  "banc","band","bane","bang","bani","bank","bans","bant","baps","bapu",
+  "barb","bard","bare","barf","bark","barm","barn","barp","bars","base",
+  "bash","bask","bass","bast","bate","bath","bats","batt","baud","bauk",
+  "baur","bawd","bawl","bawn","bawr","baye","bays","bayt","bead","beak",
+  "beam","bean","bear","beat","beau","beck","bede","beds","bedu","beef",
+  "been","beep","beer","bees","beet","bego","begs","bein","bell","bels",
+  "belt","bema","bend","bene","beni","benj","bens","bent","bere","berg",
+  "berk","berm","best","beta","bete","beth","bets","bevy","beys","bhat",
+  "bhel","bhut","bias","bibb","bibs","bice","bide","bidi","bids","bien",
+  "bier","biff","biga","bigg","bigs","bike","bile","bilk","bill","bima",
+  "bind","bine","bing","bink","bins","bint","biog","bios","bird","birk",
+  "birl","biro","birr","bise","bish","bisk","bist","bite","bito","bits",
+  "bitt","bize","blab","blad","blae","blag","blah","blam","blat","blaw",
+  "blay","bleb","bled","blee","blet","blew","bley","blin","blip","blob",
+  "bloc","blog","blot","blow","blub","blue","blur","boab","boak","boar",
+  "boas","boat","boba","bobs","bock","bode","bods","body","boep","boet",
+  "boff","bogs","bogy","boho","bohs","boil","bois","boke","boko","boks",
+  "bola","bold","bole","boll","bolo","bolt","boma","bomb","bona","bond",
+  "bone","bong","bonk","bony","boob","booh","book","bool","boom","boon",
+  "boor","boos","boot","bops","bora","bord","bore","bork","borm","born",
+  "bors","bort","bosh","bosk","boss","bota","both","bots","bott","bouk",
+  "boun","bout","bowl","bowr","bows","boxy","boyf","boyg","boyo","boys",
+  "bozo","brad","brae","brag","brak","bran","bras","brat","braw","bray",
+  "bred","bree","brei","bren","brer","brew","brey","brie","brig","brik",
+  "brim","brin","brio","bris","brit","brod","brog","broo","bros","brow",
+  "brrr","brus","brut","brux","buat","buba","bubo","bubs","bubu","buck",
+  "buda","budi","budo","buds","buff","bufo","bugs","buhl","buhr","buik",
+  "buke","bulb","bulk","bull","bumf","bump","bums","buna","bund","bung",
+  "bunk","bunn","buns","bunt","buoy","bura","burb","burd","burg","burk",
+  "burl","burn","burp","burr","burs","bury","bush","busk","buss","bust",
+  "busy","bute","buts","butt","buys","buzz","byde","byes","byke","byre",
+  "byrl","byte","caas","caba","cabs","caca","cade","cadi","cads","cafe",
+  "caff","cage","cags","cagy","caid","cain","cake","caky","calf","calk",
+  "call","calm","calo","calp","calx","cama","came","camo","camp","cams",
+  "cane","cang","cann","cans","cant","cany","capa","cape","caph","capi",
+  "capo","caps","carb","card","care","cark","carl","carn","carp","carr",
+  "cars","cart","casa","case","cash","cask","cast","cate","cats","cauf",
+  "cauk","caul","caum","caup","cava","cave","cavy","cawk","caws","cays",
+  "ceas","ceca","cede","cedi","cees","ceil","cell","cels","celt","cens",
+  "cent","cepe","ceps","cere","cero","cert","cess","cete","chad","chai",
+  "chal","cham","chao","chap","char","chas","chat","chav","chaw","chay",
+  "chef","cher","chew","chez","chia","chib","chic","chid","chik","chin",
+  "chip","chis","chit","chiv","chiz","choc","chog","chon","chop","chou",
+  "chow","chub","chug","chum","chut","ciao","cide","cids","ciel","cigs",
+  "cill","cine","cion","cire","cirl","cist","cite","cito","cits","city",
+  "cive","clad","clag","clam","clan","clap","clat","claw","clay","clef",
+  "cleg","clem","clew","clip","clod","clog","clon","clop","clot","clou",
+  "clow","cloy","club","clue","coal","coat","coax","cobb","cobs","coca",
+  "coch","cock","coco","coda","code","cods","coed","coff","coft","cogs",
+  "coho","coif","coil","coin","coir","coit","coke","coky","cola","cold",
+  "cole","coll","cols","colt","coly","coma","comb","come","comm","comp",
+  "coms","cond","cone","conf","coni","conk","conn","cons","cony","coof",
+  "cook","cool","coom","coon","coop","coos","coot","cope","cops","copy",
+  "cord","core","corf","cork","corm","corn","cors","cory","cose","cosh",
+  "coss","cost","cosy","cote","coth","cots","cott","coup","cour","cove",
+  "cowk","cowl","cowp","cows","cowy","coxa","coxy","coys","coze","cozy",
+  "crab","crag","cram","cran","crap","craw","cray","cred","cree","crem",
+  "crew","crib","crim","cris","crit","croc","crog","crop","crow","crud",
+  "crue","crus","crux","cube","cubs","cuds","cued","cues","cuff","cuif",
+  "cuit","cuke","cull","culm","cult","cunt","cups","curb","curd","cure",
+  "curf","curl","curn","curr","curs","curt","cush","cusk","cusp","cuss",
+  "cute","cuts","cwms","cyan","cyma","cyme","cyst","cyte","czar","dabs",
+  "dace","dack","dada","dado","dads","daes","daff","daft","dago","dags",
+  "dahl","dahs","dais","daks","dale","dali","dals","dalt","dame","damn",
+  "damp","dams","dang","dank","dans","dant","daps","darb","dare","darg",
+  "dari","dark","darn","dart","dash","data","date","dato","daub","daud",
+  "daur","daut","davy","dawd","dawk","dawn","daws","dawt","days","daze",
+  "dead","deaf","deal","dean","dear","deaw","debe","debs","debt","deck",
+  "deco","deed","deek","deem","deen","deep","deer","dees","deet","deev",
+  "defi","deft","defy","degs","deid","deif","deil","deke","dele","delf",
+  "deli","dell","delo","dels","delt","deme","demo","demy","dene","deni",
+  "dens","dent","deny","dere","derm","dern","dero","derv","desi","desk",
+  "deus","deva","devs","dews","dewy","dexy","deys","dhak","dhal","dhol",
+  "dhow","dial","dibs","dice","dich","dick","dict","dido","didy","dieb",
+  "died","diel","dies","diet","diff","difs","digs","dika","dike","dill",
+  "dime","dimp","dims","dine","ding","dink","dino","dins","dint","diol",
+  "dips","dipt","dire","dirk","dirl","dirt","disa","disc","dish","disk",
+  "diss","dita","dite","dits","ditt","ditz","diva","dive","divi","divs",
+  "dixi","dixy","djin","doab","doat","dobs","doby","dock","doco","docs",
+  "dodo","dods","doek","doen","doer","does","doff","doge","dogs","dogy",
+  "dohs","doit","dojo","dole","doll","dols","dolt","dome","doms","domy",
+  "dona","done","dong","dons","doob","dook","dool","doom","doon","door",
+  "doos","dopa","dope","dops","dopy","dorb","dore","dork","dorm","dorp",
+  "dorr","dors","dort","dory","dose","dosh","doss","dost","dote","doth",
+  "dots","doty","douc","douk","doum","doun","doup","dour","dout","doux",
+  "dove","dowd","dowf","dowl","down","dowp","dows","dowt","doxy","doys",
+  "doze","dozy","drab","drac","drad","drag","dram","drap","drat","draw",
+  "dray","dree","dreg","drek","drew","drey","drib","drip","drop","drow",
+  "drub","drug","drum","drys","dsos","duad","dual","duan","duar","dubs",
+  "duce","duci","duck","duct","dude","duds","dued","duel","dues","duet",
+  "duff","dugs","duit","duka","duke","dule","dull","duly","duma","dumb",
+  "dump","dune","dung","dunk","duns","dunt","duos","dupe","dups","dura",
+  "dure","durn","duro","durr","dush","dusk","dust","duty","dwam","dyad",
+  "dyed","dyer","dyes","dyke","dyne","dzho","dzos","each","eale","eans",
+  "eard","earl","earn","ears","ease","east","easy","eath","eats","eaus",
+  "eaux","eave","ebbs","ebon","ecad","ecce","ecco","eche","echo","echt",
+  "ecod","ecos","ecru","ecus","eddo","eddy","edge","edgy","edhs","edit",
+  "eech","eels","eely","eery","eevn","effs","efts","egad","egal","eger",
+  "eggs","eggy","egis","egma","egos","ehed","eide","eiks","eild","eina",
+  "eine","eish","eked","ekes","ekka","elan","elds","elfs","elhi","elks",
+  "ells","elms","elmy","else","elts","emes","emeu","emic","emir","emit",
+  "emma","emmy","emos","empt","emus","emyd","emys","ends","enes","enew",
+  "engs","enol","enow","enuf","envy","eoan","eons","eorl","epee","epha",
+  "epic","epos","eras","ered","eres","erev","ergo","ergs","eric","erks",
+  "erne","erns","eros","errs","erst","eruv","eses","esky","esne","espy",
+  "esse","ests","etas","etat","etch","eten","ethe","eths","etic","etna",
+  "etui","euge","eugh","euks","euoi","euro","even","ever","eves","evet",
+  "evil","evoe","evos","ewer","ewes","ewks","ewts","exam","exec","exed",
+  "exes","exit","exon","expo","exul","eyas","eyed","eyen","eyer","eyes",
+  "eyne","eyot","eyra","eyre","eyry","faan","faas","fabs","face","fact",
+  "fade","fado","fads","fady","faff","fags","fahs","faik","fail","fain",
+  "fair","faix","fake","fall","falx","fame","fand","fane","fang","fank",
+  "fano","fans","fard","fare","farl","farm","faro","fars","fart","fash",
+  "fast","fate","fats","faun","faur","faut","faux","fava","fave","fawn",
+  "faws","fays","faze","feal","fear","feat","feck","feds","feeb","feed",
+  "feel","feen","feer","fees","feet","fegs","fehm","fehs","feis","fell",
+  "felt","feme","fems","fend","feni","fens","fent","feod","fere","ferm",
+  "fern","fess","fest","feta","fete","fets","fett","feud","feus","feys",
+  "fiar","fiat","fibs","fice","fico","fido","fids","fief","fier","fife",
+  "fifi","figo","figs","fike","fiky","fila","file","fill","film","filo",
+  "fils","find","fine","fini","fink","fino","fins","fire","firk","firm",
+  "firn","firs","fisc","fish","fisk","fist","fits","fitt","five","fixt",
+  "fizz","flab","flag","flak","flam","flan","flap","flat","flaw","flax",
+  "flay","flea","fled","flee","fleg","flew","flex","fley","flic","flim",
+  "flip","flir","flit","flix","floc","floe","flog","flop","flor","flow",
+  "flub","flue","flus","flux","foal","foam","fobs","foci","foen","foes",
+  "fogs","fogy","fohn","fohs","foid","foil","foin","fold","folk","fond",
+  "fone","fons","font","food","fool","foot","fops","fora","forb","ford",
+  "fore","fork","form","fort","foss","foud","foul","four","fous","fowl",
+  "foxy","foys","fozy","frab","frae","frag","frap","fras","frat","frau",
+  "fray","free","fret","frib","frig","fris","frit","friz","froe","frog",
+  "from","fros","frow","frug","fubs","fuci","fuck","fuds","fuel","fuff",
+  "fugs","fugu","fuji","full","fume","fums","fumy","fund","fung","funk",
+  "funs","furl","furr","furs","fury","fusc","fuse","fuss","fust","futz",
+  "fuze","fuzz","fyce","fyke","fyle","fyrd","gabs","gaby","gade","gadi",
+  "gads","gaed","gaen","gaes","gaff","gaga","gage","gags","gaid","gain",
+  "gair","gait","gajo","gala","gale","gall","gals","gama","gamb","game",
+  "gamp","gams","gamy","gane","gang","gans","gant","gaol","gape","gapo",
+  "gaps","gapy","garb","gare","gari","gars","gart","gash","gasp","gast",
+  "gate","gath","gats","gaud","gaum","gaun","gaup","gaur","gaus","gave",
+  "gawd","gawk","gawp","gays","gaze","gazy","geal","gean","gear","geat",
+  "geck","geds","geed","geek","geep","gees","geez","geit","geld","gels",
+  "gelt","gems","gena","gene","gens","gent","genu","geos","gere","germ",
+  "gert","gest","geta","gets","geum","ghat","ghee","ghis","gibe","gibs",
+  "gids","gied","gien","gies","gift","giga","gigs","gila","gild","gill",
+  "gilt","gimp","ging","gink","ginn","gins","gios","gips","gird","girl",
+  "girn","giro","girr","girt","gism","gist","gite","gits","give","gizz",
+  "gjus","glad","glam","gled","glee","gleg","glei","glen","gley","glia",
+  "glib","glid","glim","glit","glob","glom","glop","glow","glue","glug",
+  "glum","glut","gnar","gnat","gnaw","gnow","gnus","goad","goaf","goal",
+  "goas","goat","gobo","gobs","goby","gods","goel","goer","goes","goey",
+  "goff","gogo","gold","gole","golf","golp","gone","gong","gonk","gons",
+  "good","goof","goog","gook","gool","goon","goop","goor","goos","gora",
+  "gore","gori","gorm","gorp","gory","gosh","goss","goth","gouk","gout",
+  "govs","gowd","gowf","gowk","gowl","gown","goys","grab","grad","gram",
+  "gran","grat","grav","gray","gree","gren","grew","grex","grey","grid",
+  "grig","grim","grin","grip","gris","grit","grog","grok","grot","grow",
+  "grub","grue","grum","guan","guar","gubs","guck","gude","gues","guff",
+  "guga","guid","gula","gule","gulf","gull","gulp","guls","guly","gump",
+  "gums","gung","gunk","guns","gups","gurl","gurn","gurs","guru","gush",
+  "gust","guts","guvs","guys","gyal","gybe","gymp","gyms","gyny","gyps",
+  "gyre","gyri","gyro","gyte","gyve","haaf","haar","habu","hack","hade",
+  "hadj","hads","haed","haem","haen","haes","haet","haff","haft","hagg",
+  "hags","haha","hahs","haik","hail","hain","hair","haji","hajj","haka",
+  "hake","haku","hale","half","hall","halm","halo","halt","hame","hams",
+  "hand","hang","hank","hant","haps","hapu","hard","hare","hark","harl",
+  "harm","harn","haro","harp","hart","hash","hask","hasp","hast","hate",
+  "hath","hats","haud","hauf","haul","haut","have","hawk","hawm","haws",
+  "hays","haze","hazy","head","heal","heap","hear","heat","hebe","hech",
+  "heck","heed","heel","heft","hehs","heid","heil","heir","held","hele",
+  "hell","helm","helo","help","heme","hemp","hems","hend","hens","hent",
+  "heps","hept","herb","herd","here","herl","herm","hern","hero","hers",
+  "hery","hesp","hest","hete","heth","hets","hewn","hews","heys","hick",
+  "hide","hied","hies","high","hike","hila","hild","hili","hill","hilt",
+  "hims","hind","hing","hins","hint","hioi","hips","hipt","hire","hish",
+  "hisn","hiss","hist","hits","hive","hiya","hizz","hoar","hoas","hoax",
+  "hobo","hobs","hock","hods","hoed","hoer","hoes","hogg","hogh","hogs",
+  "hoha","hohs","hoik","hoka","hoke","hoki","hold","hole","holk","holm",
+  "holp","hols","holt","holy","homa","home","homo","homs","homy","hond",
+  "hone","hong","honk","hons","hood","hoof","hook","hoon","hoop","hoot",
+  "hope","hops","hora","hore","hori","horn","hors","hose","hoss","host",
+  "hote","hots","houf","hour","hout","hove","howe","howf","howk","howl",
+  "hows","hoya","hoys","hubs","huck","hued","huer","hues","huff","huge",
+  "hugs","hugy","huhu","huia","huic","huis","hula","hule","hulk","hull",
+  "huma","humf","hump","hums","hung","hunh","hunk","huns","hunt","hups",
+  "hurl","hurt","hush","husk","huso","huss","huts","hwan","hwyl","hyed",
+  "hyen","hyes","hyke","hyla","hyle","hymn","hype","hypo","hyps","hyte",
+  "iamb","ibex","ibis","iced","icer","ices","ichs","icky","icon","idea",
+  "idee","idem","ides","idle","idly","idol","idyl","iffy","igad","iggs",
+  "iglu","ikan","ikat","ikon","ilea","ilex","ilia","ilka","ilks","ills",
+  "illy","imam","imid","immy","impi","imps","inby","inch","info","ingo",
+  "inia","inks","inky","inly","inns","inro","inti","into","ions","iota",
+  "ired","ires","irid","iris","irks","iron","isba","isit","isle","isms",
+  "isna","isos","itas","itch","item","iure","iwis","ixia","izar","jaap",
+  "jabs","jack","jade","jafa","jaga","jagg","jags","jail","jake","jaks",
+  "jamb","jams","jane","jann","jape","japs","jark","jarl","jarp","jars",
+  "jasp","jass","jasy","jato","jauk","jaup","java","jaws","jaxy","jays",
+  "jazy","jazz","jean","jeat","jedi","jeed","jeel","jeep","jeer","jees",
+  "jeez","jefe","jeff","jehu","jell","jeon","jerk","jess","jest","jete",
+  "jets","jeux","jews","jiao","jibb","jibe","jibs","jiff","jigs","jill",
+  "jilt","jimp","jink","jinn","jins","jinx","jird","jism","jive","jivy",
+  "jizz","jobe","jobs","jock","joco","joes","joey","jogs","john","join",
+  "joke","joky","jole","joll","jols","jolt","jomo","jong","jook","jors",
+  "josh","joss","jota","jots","jouk","jour","jowl","jows","joys","juba",
+  "jube","juco","judo","juds","judy","juga","jugs","juju","juke","juku",
+  "jump","junk","jupe","jura","jure","jury","just","jute","juts","juve",
+  "jynx","kaal","kaas","kabs","kade","kadi","kaed","kaes","kafs","kago",
+  "kagu","kaid","kaie","kaif","kaik","kail","kaim","kain","kais","kaka",
+  "kaki","kaks","kale","kali","kama","kame","kami","kana","kane","kang",
+  "kans","kant","kaon","kapa","kaph","kara","kark","karn","karo","kart",
+  "kata","kati","kats","kava","kawa","kaws","kayo","kays","kazi","kbar",
+  "keas","kebs","keck","keds","keef","keek","keel","keen","keep","keet",
+  "kefs","kegs","keir","keks","kell","kelp","kelt","kemb","kemp","keno",
+  "kens","kent","kepi","keps","kept","kerb","kerf","kern","kero","kesh",
+  "kest","keta","kete","keto","kets","kewl","keys","khaf","khan","khat",
+  "khet","khis","khor","khud","kibe","kick","kids","kief","kier","kiff",
+  "kifs","kike","kild","kill","kiln","kilo","kilp","kilt","kina","kind",
+  "kine","king","kink","kino","kins","kipe","kipp","kips","kirk","kirn",
+  "kirs","kish","kiss","kist","kite","kith","kits","kiva","kiwi","klap",
+  "klik","knag","knap","knar","knee","knew","knit","knob","knop","knot",
+  "know","knub","knur","knut","koan","koap","koas","kobo","kobs","koel",
+  "koff","koha","kohl","kois","koji","kola","kolo","kond","konk","kons",
+  "kook","koph","kops","kora","kore","koro","kors","koru","koss","koto",
+  "kows","krab","kris","ksar","kudo","kudu","kueh","kues","kufi","kuia",
+  "kuku","kula","kuna","kune","kuri","kuru","kuta","kuti","kutu","kuzu",
+  "kvas","kyak","kyar","kyat","kybo","kyes","kyle","kynd","kyne","kype",
+  "kyte","kyus","labs","lace","lack","lacs","lacy","lade","lads","lady",
+  "laer","lags","lahs","laic","laid","laik","lain","lair","lake","lakh",
+  "laky","lall","lama","lamb","lame","lamp","lams","lana","land","lane",
+  "lang","lank","lant","lanx","laps","lard","lare","lari","lark","larn",
+  "lars","lase","lash","lass","last","late","lath","lati","lats","latu",
+  "laud","lauf","lava","lave","lavs","lawk","lawn","laws","lays","laze",
+  "lazo","lazy","lead","leaf","leak","leal","leam","lean","leap","lear",
+  "leas","leat","lech","leed","leek","leep","leer","lees","leet","left",
+  "legs","lehr","leir","leis","leke","leks","leku","leme","lend","leng",
+  "leno","lens","lent","leps","lept","lere","lerp","less","lest","lets",
+  "leud","leva","leve","levo","levy","lewd","leys","lezz","liar","lias",
+  "libs","lice","lich","lick","lido","lids","lied","lief","lien","lier",
+  "lies","lieu","life","lift","ligs","like","lill","lilo","lilt","lily",
+  "lima","limb","lime","limn","limo","limp","limy","lind","line","ling",
+  "link","linn","lino","lins","lint","liny","lion","lipa","lipe","lipo",
+  "lips","lira","lire","liri","lirk","lisk","lisp","list","lite","lith",
+  "lits","litu","live","load","loaf","loam","loan","lobe","lobi","lobo",
+  "lobs","loca","loch","loci","lock","loco","lode","lods","loft","loge",
+  "logo","logs","logy","loid","loin","loir","loke","loll","loma","lome",
+  "lone","long","loof","look","loom","loon","loop","loor","loos","loot",
+  "lope","lops","lord","lore","lorn","lory","lose","losh","loss","lost",
+  "lota","lote","loth","loti","loto","lots","loud","loun","loup","lour",
+  "lous","lout","love","lowe","lown","lowp","lows","lowt","loys","luau",
+  "lube","luce","luck","lude","ludo","luds","lues","luff","luge","lugs",
+  "luit","luke","lull","lulu","luma","lump","lums","luna","lune","lung",
+  "lunk","lunt","luny","lure","lurk","lurs","lush","lusk","lust","lute",
+  "lutz","luvs","luxe","lwei","lyam","lych","lyes","lyme","lyms","lyne",
+  "lynx","lyra","lyre","lyse","lyte","maar","maas","mabe","mace","mach",
+  "mack","macs","made","mads","maes","mage","magg","magi","mags","maid",
+  "maik","mail","maim","main","mair","make","maki","mako","maks","mala",
+  "male","mali","mall","malm","mals","malt","mama","mams","mana","mand",
+  "mane","mang","mani","mano","mans","many","maps","mara","marc","mard",
+  "mare","marg","mark","marl","marm","mars","mart","mary","masa","mase",
+  "mash","mask","mass","mast","masu","mate","math","mats","matt","maty",
+  "maud","maul","maun","maut","mawk","mawn","mawr","maws","maxi","maya",
+  "mayo","mays","maze","mazy","mead","meal","mean","meat","meck","meds",
+  "meed","meek","meer","mees","meet","meff","mega","megs","mein","mela",
+  "meld","mell","mels","melt","meme","memo","mems","mend","mene","meng",
+  "meno","ment","menu","meou","meow","merc","mere","meri","merk","merl",
+  "mesa","mese","mesh","mess","meta","mete","meth","mets","meus","meve",
+  "mewl","mews","meze","mezz","mhos","mibs","mica","mice","mich","mick",
+  "mico","mics","midi","mids","mien","miff","migg","migs","miha","mihi",
+  "mike","mild","mile","milk","mill","milo","mils","milt","mime","mina",
+  "mind","mine","ming","mini","mink","mino","mint","minx","miny","mips",
+  "mire","miri","mirk","miro","mirs","mirv","miry","mise","miso","miss",
+  "mist","mite","mitt","mity","mixt","mixy","mizz","mnas","moai","moan",
+  "moas","moat","mobe","mobs","moby","moch","mock","mocs","mode","modi",
+  "mods","moer","moes","mofo","mogs","mohr","moil","moit","mojo","moke",
+  "moki","moko","mola","mold","mole","moll","mols","molt","moly","mome",
+  "momi","moms","mona","mong","monk","mono","mons","mony","mood","mooi",
+  "mook","mool","moon","moop","moor","moos","moot","mope","mops","mopy",
+  "mora","more","morn","mors","mort","mose","mosh","mosk","moss","most",
+  "mote","moth","moti","mots","mott","motu","moue","moup","mous","move",
+  "mowa","mown","mows","moxa","moya","moyl","moys","moze","mozo","mozz",
+  "much","muck","muds","muff","mugg","mugs","muid","muil","muir","mule",
+  "mull","mumm","mump","mums","mumu","mung","muni","muns","munt","muon",
+  "mura","mure","murk","murl","murr","muse","mush","musk","muso","muss",
+  "must","mute","muti","muts","mutt","muzz","myal","mycs","myna","myth",
+  "myxo","mzee","naam","naan","nabe","nabk","nabs","nach","nada","nads",
+  "naff","naga","nags","naif","naik","nail","nain","nala","name","nams",
+  "namu","nana","nane","nans","naoi","naos","napa","nape","naps","narc",
+  "nard","nare","nark","nary","nats","nave","navy","nays","naze","nazi",
+  "neal","neap","near","neat","nebs","neck","neds","need","neem","neep",
+  "nefs","negs","neif","neks","nema","nemn","nene","neon","neps","nerd",
+  "nerk","nesh","ness","nest","nete","nets","nett","neuk","neum","neve",
+  "nevi","news","newt","next","nibs","nice","nick","nide","nidi","nids",
+  "nied","nief","nies","nife","niff","nigh","nill","nils","nimb","nims",
+  "nine","nipa","nips","nirl","nish","nisi","nite","nits","nixe","nixy",
+  "noah","nobs","nock","node","nodi","nods","noel","noes","nogg","nogs",
+  "noil","noir","nole","noll","nolo","noma","nome","noms","nona","none",
+  "nong","noni","nook","noon","noop","nope","nori","nork","norm","nose",
+  "nosh","nosy","nota","note","nott","noul","noun","noup","nous","nout",
+  "nova","nowl","nown","nows","nowt","nowy","noys","nubs","nude","nuff",
+  "nuke","null","numb","nuns","nurd","nurl","nurr","nurs","nuts","nyas",
+  "nyed","nyes","oafs","oaks","oaky","oars","oary","oast","oath","oats",
+  "obas","obes","obey","obia","obis","obit","oboe","obol","obos","ocas",
+  "occy","oche","octa","odah","odal","odas","odds","odea","odes","odic",
+  "odor","odso","odyl","ofay","offs","ogam","ogee","ogle","ogre","ohed",
+  "ohia","ohms","ohos","oiks","oils","oily","oink","oint","okas","okay",
+  "okeh","okes","okra","okta","olds","oldy","olea","oleo","oles","olid",
+  "olio","olla","olms","olpe","ombu","omen","omer","omit","omov","once",
+  "oner","ones","onie","only","onos","onst","onto","onus","onyx","oofs",
+  "oofy","oohs","ooms","oons","oont","oops","oose","oosy","oots","ooze",
+  "oozy","opah","opal","oped","open","opes","oppo","opts","opus","orad",
+  "oral","orbs","orby","orca","orcs","ordo","ords","ores","orfe","orfs",
+  "orgy","orle","orra","orts","oryx","orzo","osar","oses","ossa","otic",
+  "otto","ouch","ouds","ouks","ould","oulk","ouma","oupa","ouph","oups",
+  "ourn","ours","oust","outs","ouzo","oval","ovel","oven","over","ovum",
+  "owed","ower","owes","owls","owly","owns","owre","owse","owts","oxen",
+  "oxer","oxes","oxid","oxim","oyer","oyes","oyez","paal","paca","pace",
+  "pack","paco","pacs","pact","pacy","padi","pads","page","pahs","paid",
+  "paik","pail","pain","pair","pais","pale","pall","palm","palp","pals",
+  "paly","pams","pand","pane","pang","pans","pant","papa","pape","paps",
+  "para","pard","pare","park","parp","parr","pars","part","pase","pash",
+  "pass","past","pate","path","pats","patu","paty","paua","paul","pave",
+  "pavs","pawa","pawk","pawl","pawn","paws","pays","peag","peak","peal",
+  "pean","pear","peas","peat","peba","pech","peck","pecs","peds","peed",
+  "peek","peel","peen","peep","peer","pees","pegh","pegs","pehs","pein",
+  "peke","pela","pele","pelf","pell","pelt","pend","pene","peni","penk",
+  "pens","pent","peon","pepo","peps","pere","peri","perk","perm","pern",
+  "perp","pert","perv","peso","pest","pets","pews","pfft","pfui","phat",
+  "phew","phis","phiz","phoh","phon","phos","phot","phut","pial","pian",
+  "pias","pica","pice","pick","pics","pied","pier","pies","piet","pigs",
+  "pika","pike","piki","pila","pile","pili","pill","pily","pima","pimp",
+  "pina","pine","ping","pink","pins","pint","piny","pion","pioy","pipa",
+  "pipe","pipi","pips","pipy","pirl","pirn","pirs","pise","pish","piso",
+  "piss","pita","pith","pits","pity","pium","pixy","pize","plan","plap",
+  "plat","play","plea","pleb","pled","plew","plex","plie","plim","plod",
+  "plop","plot","plow","ploy","plue","plug","plum","plus","poas","pock",
+  "poco","pods","poem","poep","poet","pogo","pogy","pois","poke","poky",
+  "pole","polk","poll","polo","pols","polt","poly","pome","pomo","pomp",
+  "poms","pond","pone","pong","ponk","pons","pont","pony","pood","poof",
+  "pooh","pook","pool","poon","poop","poor","poos","poot","pope","pops",
+  "pore","pork","porn","port","pory","pose","posh","poss","post","posy",
+  "pote","pots","pott","pouf","pouk","pour","pout","pown","pows","poxy",
+  "pozz","prad","pram","prao","prat","prau","pray","pree","prem","prep",
+  "prex","prey","prez","prig","prim","proa","prob","prod","prof","prog",
+  "prom","proo","prop","pros","prow","pruh","prys","psis","psst","ptui",
+  "pube","pubs","puce","puck","puds","pudu","puer","puff","pugh","pugs",
+  "puha","puir","puja","puka","puke","puku","pula","pule","puli","pulk",
+  "pull","pulp","puls","pulu","puly","puma","pump","pumy","puna","pung",
+  "punk","puns","punt","puny","pupa","pups","pupu","pure","puri","purl",
+  "purr","purs","push","puss","puts","putt","putz","puys","pyas","pyat",
+  "pyes","pyet","pyic","pyin","pyne","pyot","pyre","pyro","qadi","qaid",
+  "qats","qoph","quad","quag","quai","quat","quay","quep","quey","quid",
+  "quim","quin","quip","quit","quiz","quod","quop","rabi","raca","race",
+  "rach","rack","racy","rade","rads","raff","raft","raga","rage","ragg",
+  "ragi","rags","rahs","raia","raid","raik","rail","rain","rais","rait",
+  "raja","rake","raki","raku","rale","rami","ramp","rams","rana","rand",
+  "rang","rani","rank","rant","rape","raps","rapt","rare","rark","rase",
+  "rash","rasp","rast","rata","rate","rath","rato","rats","ratu","raun",
+  "rave","rawn","raws","raya","rays","raze","razz","read","reak","real",
+  "ream","rean","reap","rear","rebs","reck","recs","redd","rede","redo",
+  "reds","reed","reef","reek","reel","reen","rees","refs","reft","rego",
+  "regs","rehs","reif","reik","rein","reis","reke","rely","rems","rend",
+  "renk","rens","rent","reny","reos","repo","repp","reps","resh","rest",
+  "rete","rets","revs","rews","rhea","rhos","rhus","rial","rias","riba",
+  "ribs","rice","rich","rick","ricy","ride","rids","riel","riem","rife",
+  "riff","rifs","rift","rigg","rigs","rile","rill","rima","rime","rims",
+  "rimu","rimy","rind","rine","ring","rink","rins","riot","ripe","ripp",
+  "rips","ript","rise","risk","risp","rite","rits","ritt","ritz","riva",
+  "rive","rivo","riza","road","roam","roan","roar","robe","robs","roch",
+  "rock","rocs","rode","rods","roed","roes","roil","roin","roji","roke",
+  "roks","roky","role","rolf","roll","roma","romp","roms","rone","rong",
+  "ront","rood","roof","rook","room","roon","roop","roos","root","rope",
+  "ropy","rore","rort","rory","rose","rost","rosy","rota","rote","roti",
+  "rotl","roto","rots","roue","roul","roum","roup","rout","roux","rove",
+  "rows","rowt","rube","rubs","ruby","ruck","rucs","rudd","rude","ruds",
+  "rued","ruer","rues","ruff","ruga","rugs","ruin","rukh","rule","ruly",
+  "rume","rump","rums","rund","rune","rung","runs","runt","rurp","ruru",
+  "rusa","ruse","rush","rusk","rust","ruth","ruts","ryal","ryas","ryes",
+  "ryfe","ryke","rynd","ryot","rype","sabe","sabs","sack","sacs","sade",
+  "sadi","sado","sads","safe","saft","saga","sage","sago","sags","sagy",
+  "saic","said","sail","saim","sain","sair","sais","sake","saki","sale",
+  "sall","salp","sals","salt","sama","same","samp","sams","sand","sane",
+  "sang","sank","sans","sant","saps","sard","sari","sark","sars","sash",
+  "sass","sate","sati","saul","saut","save","savs","sawn","saws","saxe",
+  "says","scab","scad","scag","scam","scan","scar","scat","scaw","scog",
+  "scop","scot","scow","scry","scud","scug","scul","scum","scup","scur",
+  "scut","scye","seal","seam","sean","sear","seas","seat","sech","seco",
+  "secs","sect","seed","seek","seel","seem","seen","seep","seer","sees",
+  "sego","segs","seif","seik","seil","seir","seis","sekt","seld","sele",
+  "self","sell","sels","seme","semi","sena","send","sene","sens","sent",
+  "seps","sept","sera","sere","serf","serk","serr","sers","sese","sesh",
+  "sess","seta","sets","sett","sewn","sews","sext","sexy","seys","shad",
+  "shag","shah","sham","shan","shat","shaw","shay","shea","shed","shes",
+  "shet","shew","shim","shin","ship","shir","shit","shiv","shmo","shod",
+  "shoe","shog","shoo","shop","shot","show","shri","shul","shun","shut",
+  "shwa","sial","sibb","sibs","sice","sich","sick","sics","sida","side",
+  "sidh","sien","sies","sift","sigh","sign","sijo","sika","sike","sild",
+  "sile","silk","sill","silo","silt","sima","simi","simp","sims","sind",
+  "sine","sing","sinh","sink","sins","sipe","sips","sire","siri","sirs",
+  "siss","sist","site","sith","sits","sitz","size","sizy","sjoe","skag",
+  "skas","skat","skaw","skee","skeg","sken","skeo","skep","sker","sket",
+  "skew","skid","skim","skin","skio","skip","skis","skit","skol","skry",
+  "skua","skug","skyf","skyr","slab","slae","slag","slam","slap","slat",
+  "slaw","slay","sled","slee","slew","sley","slid","slim","slip","slit",
+  "slob","sloe","slog","slop","slot","slow","slub","slue","slug","slum",
+  "slur","slut","smee","smew","smir","smit","smog","smug","smur","smut",
+  "snab","snag","snap","snar","snaw","sneb","sned","snee","snib","snig",
+  "snip","snit","snob","snod","snog","snot","snow","snub","snug","snye",
+  "soak","soap","soar","soba","sobs","soca","sock","socs","soda","sods",
+  "sofa","soft","sogs","soho","sohs","soil","soja","soke","sola","sold",
+  "sole","soli","solo","sols","soma","some","soms","somy","sone","song",
+  "sons","sook","sool","soom","soon","soop","soot","soph","sops","sora",
+  "sorb","sord","sore","sori","sorn","sort","soss","soth","sots","souk",
+  "soul","soum","soup","sour","sous","sout","sovs","sowf","sowl","sowm",
+  "sown","sowp","sows","soya","soys","spae","spag","spam","span","spar",
+  "spas","spat","spaw","spay","spaz","spec","sped","spek","spet","spew",
+  "spic","spie","spif","spik","spim","spin","spit","spiv","spod","spot",
+  "spry","spud","spue","spug","spun","spur","sris","stab","stag","stap",
+  "star","stat","staw","stay","sted","stem","sten","step","stet","stew",
+  "stey","stie","stim","stir","stoa","stob","stop","stot","stow","stub",
+  "stud","stum","stun","stye","suba","subs","such","suck","sudd","suds",
+  "sued","suer","sues","suet","sugh","suid","suit","sukh","suks","sulk",
+  "sulu","sumo","sump","sums","sumy","sung","sunk","sunn","suns","supe",
+  "sups","suqs","sura","surd","sure","surf","suss","susu","swab","swad",
+  "swag","swam","swan","swap","swat","sway","swee","swey","swig","swim",
+  "swiz","swob","swop","swot","swum","sybo","syce","syed","syen","syes",
+  "syke","syli","sync","synd","syne","sype","syph","taal","tabi","tabs",
+  "tabu","tace","tach","tack","taco","tact","tads","taed","tael","taes",
+  "tags","taha","tahr","taig","tail","tain","tais","tait","taka","take",
+  "taki","taks","taky","tala","talc","tale","tali","talk","tall","tame",
+  "tamp","tams","tana","tane","tang","tanh","tank","tans","taos","tapa",
+  "tape","taps","tapu","tara","tare","tarn","taro","tarp","tars","tart",
+  "tash","task","tass","tate","tath","tats","tatt","tatu","taus","taut",
+  "tava","tavs","tawa","taws","tawt","taxa","taxi","tays","tead","teak",
+  "teal","team","tear","teas","teat","tech","tecs","teds","tedy","teed",
+  "teek","teel","teem","teen","teer","tees","teff","tefs","tegg","tegs",
+  "tegu","tehr","teil","tela","teld","tele","tell","tels","telt","teme",
+  "temp","tems","tend","tene","tens","tent","tepa","terf","term","tern",
+  "test","tete","teth","tets","tews","text","thae","than","thar","that",
+  "thaw","thee","them","then","thew","they","thig","thin","thio","thir",
+  "this","thon","thou","thro","thru","thud","thug","thus","tiar","tice",
+  "tich","tick","tics","tide","tids","tidy","tied","tier","ties","tiff",
+  "tift","tige","tigs","tika","tike","tiki","tile","till","tils","tilt",
+  "time","tind","tine","ting","tink","tins","tint","tiny","tipi","tips",
+  "tipt","tire","tirl","tiro","tirr","tite","titi","tits","tivy","tizz",
+  "toad","toby","tock","toco","tocs","tods","tody","toea","toed","toes",
+  "toey","toff","toft","tofu","toga","toge","togs","toho","toil","toit",
+  "toke","toko","tola","told","tole","toll","tolt","tolu","tomb","tome",
+  "tomo","toms","tone","tong","tonk","tons","tony","took","tool","toom",
+  "toon","toot","tope","toph","topi","topo","tops","tora","torc","tore",
+  "tori","torn","toro","torr","tors","tort","tory","tosa","tose","tosh",
+  "toss","tost","tote","tots","touk","toun","tour","tout","town","tows",
+  "towt","towy","toyo","toys","toze","trad","tram","trap","trat","tray",
+  "tree","tref","trek","tres","tret","trew","trey","trez","trie","trig",
+  "trim","trin","trio","trip","trod","trog","tron","trop","trot","trow",
+  "troy","true","trug","trye","tryp","tsar","tsks","tuan","tuba","tube",
+  "tubs","tuck","tufa","tuff","tuft","tugs","tuis","tule","tump","tums",
+  "tuna","tund","tune","tung","tuns","tuny","tups","turd","turf","turk",
+  "turm","turn","tush","tusk","tuts","tutu","tuzz","twae","twal","twas",
+  "twat","tway","twee","twig","twin","twit","twos","tyde","tyed","tyee",
+  "tyer","tyes","tygs","tyin","tyke","tymp","tynd","tyne","type","typo",
+  "typp","typy","tyre","tyro","tyte","tzar","udal","udon","udos","ueys",
+  "ufos","ughs","ugly","ukes","ulan","ules","ulex","ulna","ulus","ulva",
+  "umbo","umph","umps","umpy","unai","unau","unbe","unce","unci","unco",
+  "unde","undo","undy","unis","unit","unto","upas","upby","updo","upgo",
+  "upon","upsy","upta","urao","urbs","urde","urds","urdy","urea","ures",
+  "urge","uric","urns","urps","ursa","urus","urva","used","user","uses",
+  "utas","utes","utis","utus","uvae","uvas","uvea","vacs","vade","vaes",
+  "vagi","vags","vail","vain","vair","vale","vali","vamp","vane","vang",
+  "vans","vant","vara","vare","vars","vary","vasa","vase","vast","vats",
+  "vatu","vaus","vaut","vavs","vaws","veal","veep","veer","vees","vega",
+  "vego","vehm","veil","vein","vela","veld","vele","vell","vena","vend",
+  "vent","vera","verb","verd","vers","vert","very","vest","veto","vets",
+  "vext","viae","vial","vias","vibe","vibs","vice","vide","vids","vied",
+  "vier","vies","view","viga","vigs","vild","vile","vill","vims","vina",
+  "vine","vino","vins","vint","viny","viol","vire","virl","visa","vise",
+  "vita","vite","viva","vive","vivo","vizy","vlei","voar","voes","void",
+  "vola","vole","volk","vols","volt","vors","vote","vows","vril","vrot",
+  "vrou","vrow","vugg","vugh","vugs","vuln","vums","waac","wabs","wack",
+  "wadd","wade","wadi","wads","wadt","wady","waes","waff","waft","wage",
+  "wags","waid","waif","wail","wain","wair","wais","wait","waka","wake",
+  "wakf","wald","wale","wali","walk","wall","waly","wame","wand","wane",
+  "wang","wank","wans","want","wany","waps","waqf","warb","ward","ware",
+  "wark","warm","warn","warp","wars","wart","wary","wase","wash","wasm",
+  "wasp","wast","wate","wats","watt","wauk","waul","waur","wave","wavy",
+  "wawa","wawe","wawl","waws","waxy","ways","weak","weal","wean","wear",
+  "webs","weds","weed","week","weel","weem","ween","weep","weer","wees",
+  "weet","weft","weid","weil","weir","weka","weld","welk","well","welt",
+  "wemb","wems","wena","wend","wens","went","wept","were","wero","wert",
+  "west","weta","wets","wexe","weys","whae","wham","whap","what","whee",
+  "when","whet","whew","whey","whid","whig","whim","whin","whio","whip",
+  "whir","whit","whiz","whoa","whom","whop","whot","whow","whup","whys",
+  "wice","wich","wick","wide","wiel","wife","wigs","wild","wile","wili",
+  "will","wilt","wily","wimp","wind","wine","wing","wink","winn","wino",
+  "wins","winy","wipe","wire","wiry","wise","wish","wisp","wiss","wist",
+  "wite","with","wits","wive","woad","wock","woes","wofs","wogs","woke",
+  "woks","wold","wolf","womb","wonk","wons","wont","wood","woof","wool",
+  "woon","woos","woot","wops","word","wore","work","worm","worn","wort",
+  "wost","wots","wove","wowf","wows","wrap","wren","writ","wuds","wudu",
+  "wull","wuss","wych","wyes","wyle","wynd","wynn","wyns","wyte","xyst",
+  "yaar","yaba","yack","yads","yaff","yagi","yags","yahs","yaks","yald",
+  "yale","yams","yang","yank","yapp","yaps","yard","yare","yark","yarn",
+  "yarr","yate","yaud","yaup","yawl","yawn","yawp","yaws","yawy","yays",
+  "ybet","yead","yeah","yean","year","yeas","yebo","yech","yede","yeed",
+  "yegg","yeld","yelk","yell","yelm","yelp","yelt","yens","yeps","yerd",
+  "yerk","yesk","yest","yeti","yett","yeuk","yeve","yews","ygoe","yids",
+  "yike","yill","yins","yipe","yips","yird","yirk","yirr","yite","ylem",
+  "ylke","ympe","ympt","yobs","yock","yode","yodh","yods","yoga","yogh",
+  "yogi","yoke","yoks","yold","yolk","yomp","yond","yoni","yont","yoof",
+  "yoop","yore","york","yorp","youk","your","yous","yowe","yowl","yows",
+  "yuan","yuca","yuch","yuck","yuft","yuga","yugs","yuke","yuko","yuks",
+  "yuky","yule","yump","yunx","yups","yurt","yutz","yuzu","ywis","zack",
+  "zags","zany","zaps","zarf","zati","zeal","zeas","zebu","zeds","zees",
+  "zein","zeks","zels","zeps","zerk","zero","zest","zeta","zeze","zhos",
+  "ziff","zigs","zila","zill","zimb","zinc","zine","zing","zins","zips",
+  "zite","ziti","zits","zizz","zobo","zobu","zoea","zoic","zols","zona",
+  "zone","zonk","zoom","zoon","zoos","zoot","zori","zouk","zulu","zupa",
+  "zurf","zyga","zyme","zzzs"
+]);
+
+// TARGET_POOL — daily answer words. Only words whose last letter has
+// enough successors in the pool (enforced by filterPool at runtime).
+// Words ending in x/q/v are excluded up front to avoid dead-end chains.
+const TARGET_POOL = [
+  // A — ends in common chainable letters
+  "arch","area","army","aide","able","ache","acid","aged","also","amid","aunt","auto","avid","awry",
+  // B
+  "back","bake","bald","bale","ball","band","bank","barn","base","bath","beam","bean","bear","beat","beef","bell","belt","best","bike","bill","bind","bird","bite","bold","bolt","bond","bone","book","boom","boot","bore","born","boss","bowl","brew","buck","bulk","bull","bump","bunk","burn","bush","busy",
+  // C
+  "cafe","cage","cake","call","calm","camp","cane","card","care","cart","case","cash","cast","cave","cell","chap","char","chat","chef","chin","chip","chop","cite","city","clam","clap","clan","clay","clip","clot","club","clue","coal","coat","code","coil","coin","cold","colt","comb","come","cone","cook","cool","cope","cord","core","cork","corn","cost","crab","crop","cult","curb","cure","curl","cute",
+  // D
+  "dale","dame","damp","dare","dark","dart","dash","date","daze","dead","deal","dean","deck","deed","deep","deer","deft","deli","dent","deny","desk","dial","dice","diet","dill","dime","dine","dire","dish","disk","dive","dock","dole","dome","done","doom","dope","dose","dove","down","drag","draw","drip","drop","drum","dual","duel","dune","dunk","dust",
+  // E
+  "earl","earn","ease","east","easy","echo","edge","edit","emit","envy","epic","even","evil",
+  // F
+  "face","fact","fail","fair","fake","fall","fame","fare","farm","fast","fate","feat","feed","feel","feet","fell","felt","fern","file","fill","film","find","fine","fire","firm","fish","fist","flag","flat","flaw","flip","flow","foam","foal","fold","folk","fond","food","fool","fork","form","fort","foul","four","fowl","free","frog","from","fuel","full","fume","fund","fury",
+  // G
+  "gale","game","gang","gate","gave","gaze","gear","geek","give","glad","glee","glow","glue","goal","goat","gold","golf","gone","gore","grab","gray","grid","grim","grin","grip","grit","grow","gulf","gull","gulp","gush","gust",
+  // H
+  "hack","hail","hale","hall","halt","hand","hang","hard","hare","harm","harp","hash","hate","haul","have","hawk","haze","head","heal","heap","heat","heed","heel","helm","help","herb","herd","hero","hide","high","hike","hill","hint","hire","hive","hold","hole","home","hone","hood","hook","hope","horn","hose","host","hour","howl","hulk","hull","hunt","hurl",
+  // I
+  "idea","idle","iris","iron","isle",
+  // J
+  "jack","jade","jail","jerk","jest","join","joke","jolt","jump","junk","just",
+  // K
+  "keen","kick","kill","kind","king","kite","knot","know",
+  // L
+  "lack","lake","lame","lamp","land","lane","lark","lash","last","late","lava","lawn","lead","leaf","leak","lean","leap","left","lend","lens","lick","life","lift","like","limb","lime","limp","line","link","lion","list","live","load","loaf","loan","loam","loft","lone","long","look","loom","loon","loop","lore","lull","lump","lung","lure","lurk","lust","lute",
+  // M
+  "mace","made","mail","main","make","male","mall","malt","mane","mare","mark","mart","mash","mask","mass","mast","mate","math","maze","meal","mean","meat","meet","meld","melt","memo","mend","mesh","mild","mile","milk","mill","mind","mine","mint","mire","mist","moat","mode","mold","mole","molt","moon","moor","mope","more","moss","moth","mote","move","muck","mule","mull","muse","musk","must","mute",
+  // N
+  "nail","name","nape","need","nerd","nest","news","nick","nine","node","none","noon","nook","norm","nose","note","numb",
+  // O
+  "once","open","oval","oven","over",
+  // P
+  "pace","pack","page","pail","pair","pale","palm","pane","pang","park","part","pass","past","path","pave","pawn","peak","peel","pelt","perk","pest","pick","pier","pile","pill","pine","ping","pink","pint","pipe","plan","play","plot","plow","plug","plum","poem","poet","poke","pole","poll","pond","pool","pore","port","pose","post","pour","prey","prim","prod","prop","puff","pull","pump","punk","punt","pure","push","putt",
+  // R
+  "race","rack","rage","raid","rail","rain","rake","ramp","rank","rant","rate","rave","read","real","reap","ream","reed","reef","reel","rein","rely","rend","rent","rest","rice","rich","ride","rile","ring","riot","rise","risk","road","roam","roar","robe","rock","role","roll","romp","room","root","rope","rose","rote","rude","ruin","rule","rump","rune","rung","rush","rust",
+  // S
+  "safe","sage","sail","sake","sale","salt","sand","sane","sate","save","scan","scar","seal","seam","seed","seek","seem","seen","self","sell","send","shed","shin","ship","shoe","shop","shot","show","shut","side","sift","silk","sill","sing","sink","sire","site","size","skid","skin","skip","slap","slim","slip","slot","slow","slug","snap","snag","snob","snug","snow","soap","soar","sock","soft","soil","sole","some","song","soon","sore","soul","soup","sour","span","spin","spot","spur","star","stay","stem","step","stop","stow","stun","suck","sulk","sung","sunk","sure","swap","sway","swim",
+  // T
+  "tack","tale","tall","tame","tank","tape","tart","task","teak","teal","team","tear","tell","tend","tent","term","test","tick","tide","tile","till","tilt","time","tire","toad","toil","told","toll","tomb","tome","tone","tool","tore","torn","toss","tour","town","tram","trap","tray","trim","trio","trip","trot","true","tuck","tube","tune","turf","twin","twig",
+  // V
+  "vale","vane","vase","vast","veil","vein","vent","verb","vest","veto","vine","void","vote",
+  // W
+  "wade","wage","wail","wake","walk","wall","wand","wane","ward","ware","warm","warn","warp","wave","weak","weed","weep","weld","well","went","west","wick","wide","wife","wild","will","wilt","wind","wine","wink","wing","wire","wise","wish","with","wood","wool","wore","worm","worn","wrap","wren",
+  // Y
+  "yard","yarn","year","yell",
+  // Z
+  "zeal","zero","zest","zone","zoom"
+];
+
+// ═══════════════════════════════════════════
+// SEEDED RANDOM
+// ═══════════════════════════════════════════
+function mulberry32(seed) {
+  return function () {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hashString(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+// ═══════════════════════════════════════════
+// CHAIN GENERATION
+// ═══════════════════════════════════════════
+function buildGraph(words) {
+  const graph = {};
+  for (const word of words) {
+    const first = word[0];
+    if (!graph[first]) graph[first] = [];
+    graph[first].push(word);
+  }
+  return graph;
+}
+
+function filterPool(words, minSuccessors = 5) {
+  let pool = [...words];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const graph = buildGraph(pool);
+    const next = pool.filter(w => {
+      const last = w[w.length - 1];
+      return graph[last] && graph[last].length >= minSuccessors;
+    });
+    if (next.length !== pool.length) { changed = true; pool = next; }
+  }
+  return pool;
+}
+
+function getPacificDateStr() {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric", month: "2-digit", day: "2-digit"
+  }).format(new Date()).replace(/(\d+)\/(\d+)\/(\d+)/, "$3-$1-$2");
+}
+
+function generateChain(dateStr) {
+  const pool = filterPool(TARGET_POOL, 3);
+  const graph = buildGraph(pool);
+  const rand = mulberry32(hashString(dateStr));
+
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const rand2 = mulberry32(hashString(dateStr + attempt));
+    const startIdx = Math.floor(rand2() * pool.length);
+    const chain = [pool[startIdx]];
+    let ok = true;
+
+    for (let i = 1; i < 3; i++) {
+      const lastLetter = chain[i - 1][chain[i - 1].length - 1];
+      const candidates = (graph[lastLetter] || []).filter(w => !chain.includes(w));
+      if (candidates.length === 0) { ok = false; break; }
+      chain.push(candidates[Math.floor(rand2() * candidates.length)]);
+    }
+
+    if (ok && chain.length === 3) return chain;
+  }
+
+  // Hard fallback — walk the graph greedily
+  const fallback = [];
+  let current = pool[0];
+  fallback.push(current);
+  for (let i = 1; i < 3; i++) {
+    const last = fallback[i-1][fallback[i-1].length-1];
+    const opts = (graph[last] || []).filter(w => !fallback.includes(w));
+    if (!opts.length) break;
+    fallback.push(opts[0]);
+  }
+  return fallback;
+}
+
+// ═══════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════
+let todayStr = getPacificDateStr();
+let dailyChain = [];
+
+let gameActive   = false;
+let wordIndex    = 0;       // which of the 3 words we're on
+let currentInput = "";      // letters typed so far (always all 4)
+let ghostLetters = [null, null, null, null]; // confirmed green positions for current word
+const TIMER_START = 120; // 2 minutes
+let timerSeconds = TIMER_START;
+let timerInterval = null;
+let idleTimeout   = null;
+let feedbackTimeout = null;
+
+const IDLE_LIMIT = 10 * 60 * 1000; // 10 minutes
+
+// ═══════════════════════════════════════════
+// DOM REFS
+// ═══════════════════════════════════════════
+const timerEl     = document.getElementById("timer");
+const chainRow    = document.getElementById("chain-row");
+const feedbackRow = document.getElementById("feedback-row");
+const boxesRow    = document.getElementById("boxes-row");
+const statusEl    = document.getElementById("status");
+const btnStart    = document.getElementById("btn-start");
+const btnGiveup   = document.getElementById("btn-giveup");
+const btnRestart  = document.getElementById("btn-restart");
+const endScreen   = document.getElementById("end-screen");
+const endTime     = document.getElementById("end-time");
+const idleScreen  = document.getElementById("idle-screen");
+const flashEl     = document.getElementById("flash");
+const wordCount   = document.getElementById("word-count");
+const hiddenInput = document.getElementById("hidden-input");
+
+// ═══════════════════════════════════════════
+// TIMER
+// ═══════════════════════════════════════════
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
+
+function startTimer() {
+  timerInterval = setInterval(() => {
+    timerSeconds--;
+    if (timerSeconds <= 0) {
+      timerSeconds = 0;
+      timerEl.textContent = "0:00";
+      timerEl.className = "danger";
+      stopTimer();
+      endGame(false);
+      return;
+    }
+    timerEl.textContent = formatTime(timerSeconds);
+    if      (timerSeconds <= 30) timerEl.className = "danger";
+    else if (timerSeconds <= 60) timerEl.className = "warn";
+    else                          timerEl.className = "";
+  }, 1000);
+}
+
+function showTimeBonus() {
+  const el = document.createElement("div");
+  el.className = "time-bonus";
+  el.textContent = "+30s";
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+}
+
+// ═══════════════════════════════════════════
+// IDLE
+// ═══════════════════════════════════════════
+function resetIdle() {
+  clearTimeout(idleTimeout);
+  if (!gameActive) return;
+  idleTimeout = setTimeout(() => {
+    stopTimer();
+    idleScreen.classList.add("show");
+  }, IDLE_LIMIT);
+}
+
+document.getElementById("btn-resume").onclick = () => {
+  idleScreen.classList.remove("show");
+  startTimer();
+  resetIdle();
+  hiddenInput.focus();
+};
+
+// ═══════════════════════════════════════════
+// BUILD BOXES
+// ═══════════════════════════════════════════
+function buildBoxes() {
+  boxesRow.innerHTML = "";
+  for (let i = 0; i < 4; i++) {
+    const div = document.createElement("div");
+    div.className = "letter-box" + (i === 0 ? " active" : "");
+    div.id = `box-${i}`;
+    boxesRow.appendChild(div);
+  }
+}
+
+function updateBoxDisplay() {
+  const target = dailyChain[wordIndex];
+  // Chain ghost: position 0 always hints the required first letter on words 2+
+  const chainGhost = (wordIndex > 0) ? target[0] : null;
+  const typedChars = currentInput.split("");
+
+  for (let i = 0; i < 4; i++) {
+    const box = document.getElementById(`box-${i}`);
+    if (!box) continue;
+    const ch = typedChars[i];
+    const ghost = (i === 0 && chainGhost) ? chainGhost : ghostLetters[i];
+
+    if (ch) {
+      box.textContent = ch.toUpperCase();
+      box.className = "letter-box filled";
+    } else if (ghost) {
+      box.textContent = ghost.toUpperCase();
+      box.className = "letter-box ghost";
+    } else {
+      box.textContent = "";
+      box.className = "letter-box" + (i === typedChars.length ? " active" : "");
+    }
+  }
+}
+
+// ═══════════════════════════════════════════
+// COLOR FEEDBACK (WORDLE-STYLE)
+// ═══════════════════════════════════════════
+function getColors(guess, target) {
+  const result = ["red", "red", "red", "red"];
+  const targetArr = target.split("");
+  const guessArr  = guess.split("");
+  const used = [false, false, false, false];
+
+  // Pass 1: greens
+  for (let i = 0; i < 4; i++) {
+    if (guessArr[i] === targetArr[i]) {
+      result[i] = "green";
+      used[i] = true;
+      guessArr[i] = null;
+    }
+  }
+  // Pass 2: yellows
+  for (let i = 0; i < 4; i++) {
+    if (result[i] === "green") continue;
+    for (let j = 0; j < 4; j++) {
+      if (!used[j] && guessArr[i] === targetArr[j]) {
+        result[i] = "yellow";
+        used[j] = true;
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+function showFeedback(colors) {
+  // Clear any pending fade
+  if (feedbackTimeout) clearTimeout(feedbackTimeout);
+  feedbackRow.innerHTML = "";
+
+  colors.forEach(color => {
+    const sq = document.createElement("div");
+    sq.className = `feedback-square fb-${color}`;
+    feedbackRow.appendChild(sq);
+  });
+
+  feedbackTimeout = setTimeout(() => {
+    feedbackRow.querySelectorAll(".feedback-square").forEach(sq => {
+      sq.classList.add("fade-out");
+    });
+    setTimeout(() => { feedbackRow.innerHTML = ""; }, 300);
+  }, 7000);
+}
+
+function shakeBoxes() {
+  document.querySelectorAll(".letter-box").forEach(b => {
+    b.classList.remove("shake");
+    void b.offsetWidth; // reflow
+    b.classList.add("shake");
+  });
+}
+
+// ═══════════════════════════════════════════
+// WORD SOLVED ANIMATION
+// ═══════════════════════════════════════════
+function animateSolved(word) {
+  // Flash screen
+  flashEl.classList.remove("go");
+  void flashEl.offsetWidth;
+  flashEl.classList.add("go");
+
+  // Add arrow connector if not first word
+  if (wordIndex > 0) {
+    const arrow = document.createElement("div");
+    arrow.className = "chain-arrow";
+    arrow.textContent = "→";
+    chainRow.appendChild(arrow);
+  }
+
+  // Create solved word element
+  const wordEl = document.createElement("div");
+  wordEl.className = "solved-word";
+  word.split("").forEach(ch => {
+    const sq = document.createElement("div");
+    sq.className = "solved-letter";
+    sq.textContent = ch.toUpperCase();
+    wordEl.appendChild(sq);
+  });
+  chainRow.appendChild(wordEl);
+}
+
+// ═══════════════════════════════════════════
+// STATUS MESSAGE
+// ═══════════════════════════════════════════
+function showStatus(msg, duration = 1200) {
+  statusEl.textContent = msg;
+  setTimeout(() => { statusEl.textContent = ""; }, duration);
+}
+
+// ═══════════════════════════════════════════
+// SUBMIT GUESS
+// ═══════════════════════════════════════════
+function submitGuess() {
+  const target = dailyChain[wordIndex];
+  const guess  = currentInput.toLowerCase();
+
+  if (guess.length < 4) return; // incomplete
+
+  // Validate
+  if (!VALID_WORDS.has(guess)) {
+    shakeBoxes();
+    showStatus("NOT A WORD");
+    currentInput = "";
+    hiddenInput.value = "";
+    updateBoxDisplay();
+    return;
+  }
+
+  const colors = getColors(guess, target);
+  const correct = guess === target;
+
+  if (correct) {
+    // All green — clear feedback instantly, no confusion
+    if (feedbackTimeout) clearTimeout(feedbackTimeout);
+    feedbackRow.innerHTML = "";
+  } else {
+    showFeedback(colors);
+  }
+
+  if (correct) {
+    ghostLetters = [null, null, null, null];
+    animateSolved(target);
+    wordIndex++;
+    currentInput = "";
+    wordCount.textContent = `WORD ${wordIndex} / 3`;
+
+    // Time bonus for correct word
+    timerSeconds += 30;
+    timerEl.textContent = formatTime(timerSeconds);
+    if      (timerSeconds <= 30) timerEl.className = "danger";
+    else if (timerSeconds <= 60) timerEl.className = "warn";
+    else                          timerEl.className = "";
+    showTimeBonus();
+
+    if (wordIndex === 3) {
+      // All 3 solved — gold cascade then end screen
+      gameActive = false;
+      stopTimer();
+      clearTimeout(idleTimeout);
+      setTimeout(() => {
+        triggerGoldCascade(() => {
+          updateStreak();
+          btnGiveup.style.display  = "none";
+          btnRestart.style.display = "inline-block";
+        });
+      }, 350);
+    } else {
+      ghostLetters = [null, null, null, null];
+      buildBoxes();
+      updateBoxDisplay();
+    }
+  } else {
+    // Record any green positions as ghost hints
+    colors.forEach((color, i) => {
+      if (color === "green") ghostLetters[i] = guess[i];
+    });
+    currentInput = "";
+    updateBoxDisplay();
+  }
+
+  saveState();
+  resetIdle();
+}
+
+// ═══════════════════════════════════════════
+// INPUT HANDLING
+// ═══════════════════════════════════════════
+function handleKey(key) {
+  if (!gameActive) return;
+
+  if (key === "Enter") {
+    submitGuess();
+  } else if (key === "Backspace") {
+    currentInput = currentInput.slice(0, -1);
+    updateBoxDisplay();
+  } else if (/^[a-zA-Z]$/.test(key)) {
+    if (currentInput.length < 4) {
+      currentInput += key.toLowerCase();
+      updateBoxDisplay();
+      popBox(currentInput.length - 1);
+    }
+  }
+}
+
+// Keep focus on hidden input at all times during game
+hiddenInput.addEventListener("input", e => {
+  // Mobile fallback — sync value
+  const val = hiddenInput.value.replace(/[^a-zA-Z]/g, "").toLowerCase();
+  currentInput = val.slice(0, 4);
+  hiddenInput.value = currentInput;
+  updateBoxDisplay();
+  resetIdle();
+});
+
+hiddenInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    submitGuess();
+    resetIdle();
+  } else if (e.key === "Backspace") {
+    e.preventDefault();
+    currentInput = currentInput.slice(0, -1);
+    hiddenInput.value = currentInput;
+    updateBoxDisplay();
+    resetIdle();
+  } else if (/^[a-zA-Z]$/.test(e.key)) {
+    e.preventDefault();
+    handleKey(e.key);
+    resetIdle();
+  }
+});
+
+document.addEventListener("keydown", e => {
+  if (!gameActive) return;
+  hiddenInput.focus();
+});
+
+boxesRow.addEventListener("click", () => { if (gameActive) hiddenInput.focus(); });
+
+// ═══════════════════════════════════════════
+// END GAME
+// ═══════════════════════════════════════════
+function endGame(won) {
+  gameActive = false;
+  stopTimer();
+  clearTimeout(idleTimeout);
+  hiddenInput.blur();
+  btnGiveup.style.display = "none";
+  clearState();
+
+  if (!won) {
+    // Give up — reveal the full seed
+    const giveupRow = document.getElementById("giveup-chain");
+    giveupRow.innerHTML = "";
+    dailyChain.forEach((word, idx) => {
+      if (idx > 0) {
+        const arrow = document.createElement("div");
+        arrow.className = "chain-arrow";
+        arrow.textContent = "→";
+        giveupRow.appendChild(arrow);
+      }
+      const wordEl = document.createElement("div");
+      wordEl.className = "solved-word";
+      word.split("").forEach(ch => {
+        const sq = document.createElement("div");
+        sq.className = "solved-letter";
+        sq.style.background = "#555";
+        sq.textContent = ch.toUpperCase();
+        wordEl.appendChild(sq);
+      });
+      giveupRow.appendChild(wordEl);
+    });
+    document.getElementById("giveup-screen").classList.add("show");
+  }
+}
+
+function restartGame() {
+  endScreen.classList.remove("show");
+  startGame();
+}
+
+function resetToStart() {
+  document.getElementById("giveup-screen").classList.remove("show");
+  endScreen.classList.remove("show");
+  chainRow.innerHTML    = "";
+  feedbackRow.innerHTML = "";
+  statusEl.textContent  = "";
+  wordCount.textContent = "";
+  timerEl.textContent   = "2:00";
+  timerEl.className     = "";
+  timerEl.style.display = "none";
+  wordIndex    = 0;
+  timerSeconds = TIMER_START;
+  currentInput = "";
+  ghostLetters = [null, null, null, null];
+  gameActive   = false;
+  buildBoxes();
+  btnStart.style.display   = "inline-block";
+  btnGiveup.style.display  = "none";
+  btnRestart.style.display = "none";
+}
+
+function spawnParticles(el) {
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const total = 12;
+
+  for (let i = 0; i < total; i++) {
+    const angle = (i / total) * 360 + Math.random() * 20;
+    const dist  = 28 + Math.random() * 28;
+    const rad   = (angle * Math.PI) / 180;
+    const isSpark = i % 3 === 0;
+
+    const p = document.createElement("div");
+    p.className = "particle" + (isSpark ? " spark" : "");
+    p.style.left = cx + "px";
+    p.style.top  = cy + "px";
+    p.style.setProperty("--tx", (Math.cos(rad) * dist).toFixed(1) + "px");
+    p.style.setProperty("--ty", (Math.sin(rad) * dist).toFixed(1) + "px");
+    p.style.animationDuration = (0.4 + Math.random() * 0.2).toFixed(2) + "s";
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 700);
+  }
+}
+
+function triggerGoldCascade(onDone) {
+  const letters = document.querySelectorAll(".solved-letter");
+  let delay = 0;
+  letters.forEach((el, idx) => {
+    setTimeout(() => {
+      el.classList.add("gold");
+      spawnParticles(el);
+    }, delay);
+    delay += 44 + idx * 10;
+  });
+  setTimeout(onDone, delay + 300);
+}
+
+// ═══════════════════════════════════════════
+// START GAME
+// ═══════════════════════════════════════════
+function startGame(resumeState) {
+  // Regenerate chain in case midnight passed
+  todayStr    = getPacificDateStr();
+  dailyChain  = generateChain(todayStr);
+
+  wordIndex    = resumeState ? resumeState.wordIndex    : 0;
+  timerSeconds = resumeState ? resumeState.timerSeconds : TIMER_START;
+  currentInput = "";
+  ghostLetters = [null, null, null, null];
+  gameActive   = true;
+
+  // Reset UI
+  endScreen.classList.remove("show");
+  idleScreen.classList.remove("show");
+  feedbackRow.innerHTML = "";
+  chainRow.innerHTML    = "";
+  statusEl.textContent  = "";
+  timerEl.className     = "";
+  timerEl.textContent   = formatTime(timerSeconds);
+  timerEl.style.display = "block";
+  wordCount.textContent = `WORD ${wordIndex + 1} / 3`;
+
+  // Rebuild solved chain if resuming
+  if (resumeState && resumeState.solvedWords) {
+    resumeState.solvedWords.forEach((w, idx) => {
+      if (idx > 0) {
+        const arrow = document.createElement("div");
+        arrow.className = "chain-arrow";
+        arrow.textContent = "→";
+        chainRow.appendChild(arrow);
+      }
+      const wordEl = document.createElement("div");
+      wordEl.className = "solved-word";
+      w.split("").forEach(ch => {
+        const sq = document.createElement("div");
+        sq.className = "solved-letter";
+        sq.textContent = ch.toUpperCase();
+        wordEl.appendChild(sq);
+      });
+      chainRow.appendChild(wordEl);
+    });
+  }
+
+  buildBoxes();
+  updateBoxDisplay();
+
+  btnStart.style.display   = "none";
+  btnGiveup.style.display  = "inline-block";
+  btnRestart.style.display = "none";
+
+  startTimer();
+  resetIdle();
+
+  setTimeout(() => hiddenInput.focus(), 100);
+}
+
+// ═══════════════════════════════════════════
+// LOCAL STORAGE — RESUME
+// ═══════════════════════════════════════════
+function saveState() {
+  const solvedWords = dailyChain.slice(0, wordIndex);
+  localStorage.setItem("chainGame", JSON.stringify({
+    date: todayStr,
+    wordIndex,
+    timerSeconds,
+    solvedWords
+  }));
+}
+
+function clearState() {
+  localStorage.removeItem("chainGame");
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem("chainGame");
+    if (!raw) return null;
+    const state = JSON.parse(raw);
+    if (state.date !== getPacificDateStr()) { clearState(); return null; }
+    if (state.wordIndex >= 3) { clearState(); return null; }
+    return state;
+  } catch { return null; }
+}
+
+// ═══════════════════════════════════════════
+// BUTTON HANDLERS
+// ═══════════════════════════════════════════
+btnStart.onclick = () => {
+  const saved = loadState();
+  if (saved) {
+    if (confirm(`You have an unfinished game from today (word ${saved.wordIndex + 1}/3, ${formatTime(saved.timerSeconds)}). Resume?`)) {
+      startGame(saved);
+    } else {
+      clearState();
+      startGame();
+    }
+  } else {
+    startGame();
+  }
+};
+
+btnGiveup.onclick = () => {
+  if (confirm("Give up? Your progress will be lost.")) {
+    endGame(false);
+  }
+};
+
+btnRestart.onclick = () => { restartGame(); };
+
+// ═══════════════════════════════════════════
+// LETTER POP
+// ═══════════════════════════════════════════
+function popBox(idx) {
+  const box = document.getElementById(`box-${idx}`);
+  if (!box) return;
+  box.classList.remove("pop");
+  void box.offsetWidth;
+  box.classList.add("pop");
+  setTimeout(() => box.classList.remove("pop"), 120);
+}
+
+// ═══════════════════════════════════════════
+// STREAK + BEST TIME
+// ═══════════════════════════════════════════
+function updateStreak() {
+  const today = getPacificDateStr();
+  const raw   = localStorage.getItem("chainStats");
+  let stats   = raw ? JSON.parse(raw) : { streak: 0, lastPlayed: null, bestTime: null };
+
+  // Update streak
+  const yesterday = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Los_Angeles",
+      year: "numeric", month: "2-digit", day: "2-digit"
+    }).format(d).replace(/(\d+)\/(\d+)\/(\d+)/, "$3-$1-$2");
+  })();
+
+  if (stats.lastPlayed === today) {
+    // Already completed today — don't double-count, just show
+  } else if (stats.lastPlayed === yesterday) {
+    stats.streak += 1;
+  } else {
+    stats.streak = 1; // missed a day or first time
+  }
+  stats.lastPlayed = today;
+
+  // Update best time
+  const isRecord = stats.bestTime === null || timerSeconds > stats.bestTime;
+  if (isRecord) stats.bestTime = timerSeconds;
+
+  localStorage.setItem("chainStats", JSON.stringify(stats));
+
+  // Update end screen
+  document.getElementById("end-streak").textContent = stats.streak;
+  document.getElementById("end-best").textContent   = formatTime(stats.bestTime);
+  if (isRecord && stats.streak > 0) {
+    document.getElementById("end-best").classList.add("record");
+    document.getElementById("end-record-msg").textContent = stats.bestTime === timerSeconds && stats.streak === 1
+      ? "FIRST COMPLETION!"
+      : "NEW BEST TIME!";
+  } else {
+    document.getElementById("end-record-msg").textContent = stats.streak > 1
+      ? `${stats.streak} DAY STREAK — KEEP IT UP`
+      : "";
+  }
+}
+
+// ═══════════════════════════════════════════
+// INSTRUCTIONS
+// ═══════════════════════════════════════════
+function showInstructions() {
+  document.getElementById("instructions-screen").classList.add("show");
+}
+
+function dismissInstructions() {
+  document.getElementById("instructions-screen").classList.remove("show");
+  localStorage.setItem("chainSeen", "1");
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+buildBoxes();
+
+if (!localStorage.getItem("chainSeen")) {
+  showInstructions();
+}
+</script>
+</body>
+</html>
