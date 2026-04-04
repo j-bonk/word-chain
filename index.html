@@ -228,7 +228,9 @@
 
   /* ── Hidden input ── */
   #hidden-input {
-    position: absolute;
+    position: fixed;
+    top: -9999px;
+    left: -9999px;
     opacity: 0;
     width: 0;
     height: 0;
@@ -265,11 +267,54 @@
     text-transform: uppercase;
   }
 
+  /* ── Custom keyboard ── */
+  #keyboard {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 6px 28px;
+    background: #111;
+    border-top: 1px solid #222;
+    z-index: 50;
+    box-sizing: border-box;
+  }
+  #keyboard.active { display: flex; }
+  .kb-row {
+    display: flex;
+    gap: 5px;
+  }
+  .kb-key {
+    flex: 1;
+    min-width: 0;
+    height: 46px;
+    padding: 0;
+    background: #2e2e2e;
+    border: none;
+    border-radius: 6px;
+    color: #f0f0f0;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    text-transform: uppercase;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .kb-key:active { background: #555; transform: scale(0.93); }
+  .kb-wide { flex: 1.5; }
+  .kb-submit { background: #27ae60; color: #fff; }
+  .kb-submit:active { background: #1e8449; }
+
   /* ── Mobile layout (<600px = phones) ── */
   @media (max-width: 600px) {
     body {
       justify-content: flex-start;
       padding-top: 72px;
+      padding-bottom: 180px;
     }
 
     /* Header */
@@ -580,7 +625,19 @@
 </div>
 <button id="btn-how" onclick="showInstructions()">How to Play</button>
 
-<input id="hidden-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+<input id="hidden-input" type="text" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+
+<div id="keyboard">
+  <div class="kb-row">
+    <button class="kb-key" data-key="q">Q</button><button class="kb-key" data-key="w">W</button><button class="kb-key" data-key="e">E</button><button class="kb-key" data-key="r">R</button><button class="kb-key" data-key="t">T</button><button class="kb-key" data-key="y">Y</button><button class="kb-key" data-key="u">U</button><button class="kb-key" data-key="i">I</button><button class="kb-key" data-key="o">O</button><button class="kb-key" data-key="p">P</button>
+  </div>
+  <div class="kb-row">
+    <button class="kb-key" data-key="a">A</button><button class="kb-key" data-key="s">S</button><button class="kb-key" data-key="d">D</button><button class="kb-key" data-key="f">F</button><button class="kb-key" data-key="g">G</button><button class="kb-key" data-key="h">H</button><button class="kb-key" data-key="j">J</button><button class="kb-key" data-key="k">K</button><button class="kb-key" data-key="l">L</button>
+  </div>
+  <div class="kb-row">
+    <button class="kb-key kb-wide" data-key="Backspace">⌫</button><button class="kb-key" data-key="z">Z</button><button class="kb-key" data-key="x">X</button><button class="kb-key" data-key="c">C</button><button class="kb-key" data-key="v">V</button><button class="kb-key" data-key="b">B</button><button class="kb-key" data-key="n">N</button><button class="kb-key" data-key="m">M</button><button class="kb-key kb-wide kb-submit" data-key="Enter">GO</button>
+  </div>
+</div>
 
 <div id="end-screen">
   <div id="end-title">CHAIN COMPLETE</div>
@@ -1445,7 +1502,7 @@ document.getElementById("btn-resume").onclick = () => {
   idleScreen.classList.remove("show");
   startTimer();
   resetIdle();
-  hiddenInput.focus();
+  if (!isMobile()) hiddenInput.focus();
 };
 
 // ═══════════════════════════════════════════
@@ -1699,12 +1756,28 @@ hiddenInput.addEventListener("keydown", e => {
   }
 });
 
+const isMobile = () => window.innerWidth <= 600;
+
+// Desktop: physical keydown re-focuses hidden input to capture input events
 document.addEventListener("keydown", e => {
-  if (!gameActive) return;
+  if (!gameActive || isMobile()) return;
   hiddenInput.focus();
 });
 
-boxesRow.addEventListener("click", () => { if (gameActive) hiddenInput.focus(); });
+boxesRow.addEventListener("click", () => {
+  if (gameActive && !isMobile()) hiddenInput.focus();
+});
+
+// Custom keyboard
+const keyboardEl = document.getElementById("keyboard");
+document.querySelectorAll(".kb-key").forEach(btn => {
+  btn.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    if (!gameActive) return;
+    handleKey(btn.dataset.key);
+    resetIdle();
+  });
+});
 
 
 // ═══════════════════════════════════════════
@@ -1760,6 +1833,7 @@ function resetToStart() {
   timerEl.textContent   = "2:00";
   timerEl.className     = "";
   timerEl.style.display = "none";
+  keyboardEl.classList.remove("active");
   wordIndex    = 0;
   timerSeconds = TIMER_START;
   currentInput = "";
@@ -1831,6 +1905,8 @@ function startGame(resumeState) {
   timerEl.className     = "";
   timerEl.textContent   = formatTime(timerSeconds);
   timerEl.style.display = "block";
+  if (isMobile()) keyboardEl.classList.add("active");
+  else hiddenInput.focus();
   wordCount.textContent = `WORD ${wordIndex + 1} / 3`;
 
   // Rebuild solved chain if resuming
@@ -1863,8 +1939,6 @@ function startGame(resumeState) {
 
   startTimer();
   resetIdle();
-
-  hiddenInput.focus();
 }
 
 // ═══════════════════════════════════════════
