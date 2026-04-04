@@ -235,6 +235,36 @@
   }
 
   /* ── On-screen keyboard ── */
+  /* ── Win stats ── */
+  #win-stats {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 16px;
+    animation: fade-up 0.5s ease forwards;
+  }
+  #win-stats.show { display: flex; }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  #win-record {
+    font-size: 0.8rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #f1c40f;
+    min-height: 1em;
+  }
+  #win-meta {
+    display: flex;
+    gap: 24px;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    color: #888;
+    text-transform: uppercase;
+  }
+
   /* ── Mobile layout (<600px = phones) ── */
   @media (max-width: 600px) {
     body {
@@ -536,6 +566,13 @@
 <div id="feedback-row"></div>
 <div id="boxes-row"></div>
 <div id="status"></div>
+<div id="win-stats">
+  <div id="win-record"></div>
+  <div id="win-meta">
+    <span id="win-streak"></span>
+    <span id="win-time"></span>
+  </div>
+</div>
 <div id="btn-row">
   <button id="btn-start">Start</button>
   <button id="btn-giveup">Give Up</button>
@@ -1731,6 +1768,7 @@ function resetToStart() {
   btnStart.style.display   = "inline-block";
   btnGiveup.style.display  = "none";
   btnRestart.style.display = "none";
+  document.getElementById("win-stats").classList.remove("show");
 }
 
 function spawnParticles(el) {
@@ -1927,19 +1965,23 @@ function updateStreak() {
 
   localStorage.setItem("chainStats", JSON.stringify(stats));
 
-  // Update end screen
-  document.getElementById("end-streak").textContent = stats.streak;
-  document.getElementById("end-best").textContent   = formatTime(stats.bestTime);
-  if (isRecord && stats.streak > 0) {
-    document.getElementById("end-best").classList.add("record");
-    document.getElementById("end-record-msg").textContent = stats.bestTime === timerSeconds && stats.streak === 1
+  // Show win stats below the board
+  const streakLabel = stats.streak === 1 ? "1 day streak" : `${stats.streak} day streak`;
+  const timeLabel   = `${formatTime(timerSeconds)} left`;
+  document.getElementById("win-streak").textContent = `🔥 ${streakLabel}`;
+  document.getElementById("win-time").textContent   = `⏱ ${timeLabel}`;
+
+  if (isRecord) {
+    document.getElementById("win-record").textContent = stats.streak === 1
       ? "FIRST COMPLETION!"
       : "NEW BEST TIME!";
+  } else if (stats.streak > 1) {
+    document.getElementById("win-record").textContent = "KEEP THE STREAK GOING";
   } else {
-    document.getElementById("end-record-msg").textContent = stats.streak > 1
-      ? `${stats.streak} DAY STREAK — KEEP IT UP`
-      : "";
+    document.getElementById("win-record").textContent = "";
   }
+
+  document.getElementById("win-stats").classList.add("show");
 }
 
 // ═══════════════════════════════════════════
