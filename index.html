@@ -1746,6 +1746,7 @@ function endGame(won) {
 
 function restartGame() {
   endScreen.classList.remove("show");
+  document.getElementById("win-stats").classList.remove("show");
   startGame();
 }
 
@@ -1801,7 +1802,6 @@ function triggerGoldCascade(onDone) {
   letters.forEach((el, idx) => {
     setTimeout(() => {
       el.classList.add("gold");
-      spawnParticles(el);
     }, delay);
     delay += 44 + idx * 10;
   });
@@ -1864,7 +1864,7 @@ function startGame(resumeState) {
   startTimer();
   resetIdle();
 
-  setTimeout(() => hiddenInput.focus(), 100);
+  hiddenInput.focus();
 }
 
 // ═══════════════════════════════════════════
