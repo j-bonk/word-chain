@@ -36,12 +36,11 @@
   #timer.warn   { color: #f5c542; }
   #timer.danger { color: #e74c3c; animation: pulse 0.6s infinite alternate; }
 
-  .time-bonus {
+  .time-bonus, .time-penalty {
     position: fixed;
     top: 80px;
     left: 50%;
     transform: translateX(-50%);
-    color: #27ae60;
     font-size: 1.6rem;
     font-weight: bold;
     font-family: 'Courier New', monospace;
@@ -50,6 +49,8 @@
     z-index: 20;
     animation: bonus-float 3s ease-out forwards;
   }
+  .time-bonus   { color: #27ae60; }
+  .time-penalty { color: #e74c3c; }
   @keyframes bonus-float {
     0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
     70%  { opacity: 1; transform: translateX(-50%) translateY(-20px); }
@@ -130,13 +131,6 @@
   .fb-yellow { background: #f39c12; box-shadow: 0 0 10px #f39c1288; }
   .fb-red    { background: #e74c3c; box-shadow: 0 0 10px #e74c3c88; }
 
-  .feedback-square.fade-out {
-    animation: fade-out 0.3s ease forwards;
-  }
-  @keyframes fade-out {
-    to { opacity: 0; transform: scaleY(0); }
-  }
-
   /* ── Gold completion ── */
   .solved-letter.gold {
     background: #f1c40f;
@@ -204,7 +198,7 @@
   .letter-box.active  { border-color: #555; }
   .letter-box.filled  { border-color: #888; }
   .letter-box.locked  { border-color: #27ae60; color: #27ae60; }
-  .letter-box.ghost   { border-color: #1e5c35; color: #2ecc71; opacity: 0.45; }
+  .letter-box.ghost   { border-color: #1e5c35; color: #2ecc71; opacity: 0.25; }
 
   .letter-box.shake {
     animation: shake 0.35s ease;
@@ -635,7 +629,7 @@
     <button class="kb-key" data-key="a">A</button><button class="kb-key" data-key="s">S</button><button class="kb-key" data-key="d">D</button><button class="kb-key" data-key="f">F</button><button class="kb-key" data-key="g">G</button><button class="kb-key" data-key="h">H</button><button class="kb-key" data-key="j">J</button><button class="kb-key" data-key="k">K</button><button class="kb-key" data-key="l">L</button>
   </div>
   <div class="kb-row">
-    <button class="kb-key kb-wide" data-key="Backspace">⌫</button><button class="kb-key" data-key="z">Z</button><button class="kb-key" data-key="x">X</button><button class="kb-key" data-key="c">C</button><button class="kb-key" data-key="v">V</button><button class="kb-key" data-key="b">B</button><button class="kb-key" data-key="n">N</button><button class="kb-key" data-key="m">M</button><button class="kb-key kb-wide kb-submit" data-key="Enter">GO</button>
+    <button class="kb-key kb-wide kb-submit" data-key="Enter">GO</button><button class="kb-key" data-key="z">Z</button><button class="kb-key" data-key="x">X</button><button class="kb-key" data-key="c">C</button><button class="kb-key" data-key="v">V</button><button class="kb-key" data-key="b">B</button><button class="kb-key" data-key="n">N</button><button class="kb-key" data-key="m">M</button><button class="kb-key kb-wide" data-key="Backspace">⌫</button>
   </div>
 </div>
 
@@ -1424,7 +1418,6 @@ const TIMER_START = 120; // 2 minutes
 let timerSeconds = TIMER_START;
 let timerInterval = null;
 let idleTimeout   = null;
-let feedbackTimeout = null;
 
 const IDLE_LIMIT = 10 * 60 * 1000; // 10 minutes
 
@@ -1477,6 +1470,19 @@ function showTimeBonus() {
   const el = document.createElement("div");
   el.className = "time-bonus";
   el.textContent = "+30s";
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function showTimePenalty() {
+  timerSeconds = Math.max(0, timerSeconds - 1);
+  timerEl.textContent = formatTime(timerSeconds);
+  if      (timerSeconds <= 30) timerEl.className = "danger";
+  else if (timerSeconds <= 60) timerEl.className = "warn";
+  else                          timerEl.className = "";
+  const el = document.createElement("div");
+  el.className = "time-penalty";
+  el.textContent = "-1s";
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 3000);
 }
@@ -1575,8 +1581,6 @@ function getColors(guess, target) {
 }
 
 function showFeedback(colors) {
-  // Clear any pending fade
-  if (feedbackTimeout) clearTimeout(feedbackTimeout);
   feedbackRow.innerHTML = "";
 
   colors.forEach(color => {
@@ -1584,13 +1588,6 @@ function showFeedback(colors) {
     sq.className = `feedback-square fb-${color}`;
     feedbackRow.appendChild(sq);
   });
-
-  feedbackTimeout = setTimeout(() => {
-    feedbackRow.querySelectorAll(".feedback-square").forEach(sq => {
-      sq.classList.add("fade-out");
-    });
-    setTimeout(() => { feedbackRow.innerHTML = ""; }, 300);
-  }, 7000);
 }
 
 function shakeBoxes() {
@@ -1640,7 +1637,7 @@ function submitGuess() {
   const target = dailyChain[wordIndex];
   const guess  = currentInput.toLowerCase();
 
-  if (guess.length < 4) return; // incomplete
+  if (guess.length < 4) { shakeBoxes(); return; }
 
   // Validate
   if (!VALID_WORDS.has(guess)) {
@@ -1656,11 +1653,10 @@ function submitGuess() {
   const correct = guess === target;
 
   if (correct) {
-    // All green — clear feedback instantly, no confusion
-    if (feedbackTimeout) clearTimeout(feedbackTimeout);
     feedbackRow.innerHTML = "";
   } else {
     showFeedback(colors);
+    showTimePenalty();
   }
 
   if (correct) {
