@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Clause — Daily Word Game</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -322,37 +322,36 @@
       bottom: 0;
       left: 0;
       right: 0;
-      width: 100%;
-      margin-top: 0;
+      margin: 0;
       background: #0d0d0d;
       border-top: 1px solid #222;
       padding: 8px 0;
-      box-sizing: border-box;
+      padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
       z-index: 10;
     }
     #lb-title {
       margin-bottom: 6px;
       padding: 0 16px;
+      text-align: center;
     }
     #lb-list {
       display: flex;
       flex-direction: row;
-      gap: 0;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
-      justify-content: center;
       padding: 0 16px;
     }
+    #lb-list::before,
+    #lb-list::after { content: ''; flex: 1; }
     #lb-list::-webkit-scrollbar { display: none; }
     .lb-entry {
       flex-direction: column;
       align-items: center;
       flex-shrink: 0;
-      min-width: 60px;
       border-bottom: none;
       border-right: 1px solid #222;
-      padding: 4px 12px;
+      padding: 4px 14px;
       gap: 2px;
     }
     .lb-entry:last-child { border-right: none; }
