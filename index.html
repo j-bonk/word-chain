@@ -520,6 +520,125 @@
     margin-top: 6px;
   }
 
+  /* ── Leaderboard ── */
+  #leaderboard {
+    width: 180px;
+    margin-top: 24px;
+    text-align: center;
+  }
+  #lb-title {
+    font-size: 0.65rem;
+    letter-spacing: 3px;
+    color: #444;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .lb-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 0;
+    border-bottom: 1px solid #1a1a1a;
+    font-size: 0.82rem;
+    letter-spacing: 1px;
+  }
+  .lb-rank  { color: #555; width: 22px; flex-shrink: 0; }
+  .lb-name  { color: #f0f0f0; flex: 1; text-align: left; text-transform: uppercase; }
+  .lb-time  { color: #27ae60; flex-shrink: 0; }
+  .lb-empty { color: #2a2a2a; flex: 1; text-align: left; }
+  .lb-time-empty { color: #222; flex-shrink: 0; }
+
+  /* Desktop: leaderboard pinned to the right */
+  @media (min-width: 768px) {
+    #leaderboard {
+      position: fixed;
+      right: 40px;
+      top: 50%;
+      transform: translateY(-50%);
+      margin-top: 0;
+      text-align: left;
+      width: 170px;
+    }
+  }
+
+  /* ── Nickname prompt overlay ── */
+  #nickname-screen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    z-index: 150;
+  }
+  #nickname-screen.show { display: flex; }
+  #nickname-label {
+    font-size: 0.75rem;
+    letter-spacing: 3px;
+    color: #666;
+    text-transform: uppercase;
+  }
+  #nickname-time-display {
+    font-size: 2.4rem;
+    font-weight: bold;
+    color: #27ae60;
+    letter-spacing: 3px;
+  }
+  #nickname-boxes {
+    display: flex;
+    gap: 10px;
+  }
+  .nickname-box {
+    width: 54px;
+    height: 54px;
+    border: 2px solid #2a2a2a;
+    border-radius: 8px;
+    background: #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.9rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: #f0f0f0;
+    transition: border-color 0.15s;
+  }
+  .nickname-box.active { border-color: #555; }
+  .nickname-box.filled { border-color: #888; }
+  #nickname-input-hidden {
+    position: fixed;
+    top: -9999px;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+  }
+  #nickname-btn-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  #btn-submit-score {
+    background: #27ae60;
+    color: #fff;
+    padding: 12px 28px;
+  }
+  #btn-skip-score {
+    background: #1e1e1e;
+    color: #555;
+    border: 1px solid #333;
+    padding: 12px 28px;
+  }
+  #nickname-rank-msg {
+    font-size: 0.8rem;
+    letter-spacing: 2px;
+    color: #f1c40f;
+    text-transform: uppercase;
+    min-height: 1.2em;
+    text-align: center;
+  }
+
   /* ── How to Play button ── */
   #btn-how {
     margin-top: 12px;
@@ -618,6 +737,30 @@
   <button id="btn-restart">Play Again</button>
 </div>
 <button id="btn-how" onclick="showInstructions()">How to Play</button>
+
+<div id="leaderboard">
+  <div id="lb-title">Today's Best</div>
+  <div id="lb-list"></div>
+</div>
+
+<div id="nickname-screen">
+  <div id="nickname-label">Enter Your Initials</div>
+  <div id="nickname-time-display"></div>
+  <div id="nickname-boxes">
+    <div class="nickname-box" id="nb-0"></div>
+    <div class="nickname-box" id="nb-1"></div>
+    <div class="nickname-box" id="nb-2"></div>
+    <div class="nickname-box" id="nb-3"></div>
+  </div>
+  <input id="nickname-input-hidden" type="text" maxlength="4"
+    autocomplete="off" autocorrect="off" autocapitalize="characters"
+    spellcheck="false" inputmode="text" />
+  <div id="nickname-btn-row">
+    <button id="btn-submit-score">Submit</button>
+    <button id="btn-skip-score">Skip</button>
+  </div>
+  <div id="nickname-rank-msg"></div>
+</div>
 
 <input id="hidden-input" type="text" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
 
@@ -1684,6 +1827,7 @@ function submitGuess() {
           updateStreak();
           btnGiveup.style.display  = "none";
           btnRestart.style.display = "inline-block";
+          setTimeout(showNicknamePrompt, 800);
         });
       }, 350);
     } else {
@@ -2055,6 +2199,111 @@ function updateStreak() {
 }
 
 // ═══════════════════════════════════════════
+// LEADERBOARD
+// ═══════════════════════════════════════════
+async function loadLeaderboard() {
+  const lb = document.getElementById('lb-list');
+  try {
+    const res = await fetch('/api/scores');
+    if (!res.ok) throw new Error();
+    const scores = await res.json();
+    lb.innerHTML = '';
+    for (let i = 0; i < 3; i++) {
+      const entry = document.createElement('div');
+      entry.className = 'lb-entry';
+      if (scores[i]) {
+        entry.innerHTML =
+          `<span class="lb-rank">#${i+1}</span>` +
+          `<span class="lb-name">${scores[i].nickname}</span>` +
+          `<span class="lb-time">${formatTime(scores[i].time_remaining)}</span>`;
+      } else {
+        entry.innerHTML =
+          `<span class="lb-rank">#${i+1}</span>` +
+          `<span class="lb-empty">· · ·</span>` +
+          `<span class="lb-time-empty">--:--</span>`;
+      }
+      lb.appendChild(entry);
+    }
+  } catch(e) {
+    lb.innerHTML = '<div style="color:#2a2a2a;font-size:0.75rem;letter-spacing:1px;padding:6px 0;">UNAVAILABLE</div>';
+  }
+}
+
+// ═══════════════════════════════════════════
+// NICKNAME PROMPT
+// ═══════════════════════════════════════════
+let nickInput = '';
+
+function updateNicknameBoxes() {
+  for (let i = 0; i < 4; i++) {
+    const box = document.getElementById(`nb-${i}`);
+    box.textContent = nickInput[i] || '';
+    box.className = 'nickname-box';
+    if (nickInput[i])            box.classList.add('filled');
+    else if (i === nickInput.length) box.classList.add('active');
+  }
+}
+
+function showNicknamePrompt() {
+  const today = getPacificDateStr();
+  if (localStorage.getItem('submitted_today') === today) {
+    loadLeaderboard();
+    return;
+  }
+  nickInput = '';
+  updateNicknameBoxes();
+  document.getElementById('nickname-time-display').textContent = formatTime(timerSeconds);
+  document.getElementById('nickname-rank-msg').textContent = '';
+  const submitBtn = document.getElementById('btn-submit-score');
+  submitBtn.textContent = 'Submit';
+  submitBtn.disabled = false;
+  document.getElementById('nickname-screen').classList.add('show');
+  const inp = document.getElementById('nickname-input-hidden');
+  inp.value = '';
+  setTimeout(() => inp.focus(), 100);
+}
+
+function closeNicknamePrompt() {
+  document.getElementById('nickname-screen').classList.remove('show');
+}
+
+async function submitScore() {
+  const nickname = nickInput.trim();
+  if (!nickname) return;
+  const btn = document.getElementById('btn-submit-score');
+  btn.textContent = '...';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/scores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname, time_remaining: timerSeconds })
+    });
+    const data = await res.json();
+    localStorage.setItem('submitted_today', getPacificDateStr());
+    document.getElementById('nickname-rank-msg').textContent = `YOU RANKED #${data.rank} TODAY`;
+    await loadLeaderboard();
+    setTimeout(closeNicknamePrompt, 2200);
+  } catch(e) {
+    document.getElementById('nickname-rank-msg').textContent = 'ERROR — TRY AGAIN';
+    btn.textContent = 'Submit';
+    btn.disabled = false;
+  }
+}
+
+// Wire nickname hidden input → boxes
+document.getElementById('nickname-input-hidden').addEventListener('input', function() {
+  nickInput = this.value.replace(/[^a-zA-Z]/g, '').slice(0, 4);
+  this.value = nickInput;
+  updateNicknameBoxes();
+});
+document.getElementById('nickname-input-hidden').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && nickInput.length > 0) submitScore();
+});
+document.getElementById('btn-submit-score').onclick = submitScore;
+document.getElementById('btn-skip-score').onclick = closeNicknamePrompt;
+
+// ═══════════════════════════════════════════
 // INSTRUCTIONS
 // ═══════════════════════════════════════════
 function showInstructions() {
@@ -2070,6 +2319,7 @@ function dismissInstructions() {
 // INIT
 // ═══════════════════════════════════════════
 buildBoxes();
+loadLeaderboard();
 
 if (!localStorage.getItem("chainSeen")) {
   showInstructions();
