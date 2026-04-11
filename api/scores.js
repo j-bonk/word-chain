@@ -30,7 +30,7 @@ function getPacificOffset(date) {
 export default async function handler(req, res) {
   const { start, end } = todayRange();
 
-  // ── GET: fetch today's top 3 ──────────────────────────────
+  // ── GET: fetch today's top 5 ──────────────────────────────
   if (req.method === 'GET') {
     res.setHeader('Cache-Control', 's-maxage=30');
     const { data, error } = await supabase
@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       .gte('submitted_at', start)
       .lte('submitted_at', end)
       .order('time_remaining', { ascending: false })
-      .limit(3);
+      .limit(5);
 
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json(data);
