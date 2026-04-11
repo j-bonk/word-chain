@@ -322,7 +322,6 @@
       bottom: 0;
       left: 0;
       right: 0;
-      width: auto;
       margin: 0;
       background: #0d0d0d;
       border-top: 1px solid #222;
@@ -356,10 +355,10 @@
     /* auto margins on first/last: centers when fits, scrolls from left when overflows */
     .lb-entry:first-child { margin-left: auto; }
     .lb-entry:last-child  { margin-right: auto; border-right: none; }
-    .lb-name { text-align: center; font-size: 0.8rem; }
-    .lb-time { font-size: 0.75rem; }
-    .lb-empty { font-size: 0.8rem; text-align: center; }
-    .lb-time-empty { font-size: 0.75rem; }
+    .lb-name { text-align: center; font-size: 0.9rem; }
+    .lb-time { font-size: 0.85rem; }
+    .lb-empty { font-size: 0.9rem; text-align: center; }
+    .lb-time-empty { font-size: 0.85rem; }
 
     /* Keyboard on top of nickname overlay on mobile */
     #keyboard.nickname-mode { z-index: 200; }
@@ -570,7 +569,6 @@
 
   /* ── Leaderboard ── */
   #leaderboard {
-    width: 200px;
     margin-top: 24px;
     text-align: center;
   }
@@ -587,14 +585,14 @@
     gap: 8px;
     padding: 8px 0;
     border-bottom: 1px solid #222;
-    font-size: 0.95rem;
+    font-size: 1.05rem;
     letter-spacing: 1px;
   }
   .lb-rank  { color: #ccc; width: 24px; flex-shrink: 0; font-weight: bold; }
   .lb-name  { color: #f0f0f0; flex: 1; text-align: left; text-transform: uppercase; font-weight: bold; }
   .lb-time  { color: #27ae60; flex-shrink: 0; }
-  .lb-empty { color: #333; flex: 1; text-align: left; }
-  .lb-time-empty { color: #2a2a2a; flex-shrink: 0; }
+  .lb-empty { color: #666; flex: 1; text-align: left; }
+  .lb-time-empty { color: #555; flex-shrink: 0; }
 
   /* Desktop: leaderboard pinned to top-right */
   @media (min-width: 768px) {
