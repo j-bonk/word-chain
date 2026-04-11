@@ -522,42 +522,41 @@
 
   /* ── Leaderboard ── */
   #leaderboard {
-    width: 180px;
+    width: 200px;
     margin-top: 24px;
     text-align: center;
   }
   #lb-title {
-    font-size: 0.65rem;
+    font-size: 0.72rem;
     letter-spacing: 3px;
-    color: #444;
+    color: #aaa;
     text-transform: uppercase;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
   }
   .lb-entry {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 7px 0;
-    border-bottom: 1px solid #1a1a1a;
-    font-size: 0.82rem;
+    padding: 8px 0;
+    border-bottom: 1px solid #222;
+    font-size: 0.95rem;
     letter-spacing: 1px;
   }
-  .lb-rank  { color: #555; width: 22px; flex-shrink: 0; }
-  .lb-name  { color: #f0f0f0; flex: 1; text-align: left; text-transform: uppercase; }
+  .lb-rank  { color: #ccc; width: 24px; flex-shrink: 0; font-weight: bold; }
+  .lb-name  { color: #f0f0f0; flex: 1; text-align: left; text-transform: uppercase; font-weight: bold; }
   .lb-time  { color: #27ae60; flex-shrink: 0; }
-  .lb-empty { color: #2a2a2a; flex: 1; text-align: left; }
-  .lb-time-empty { color: #222; flex-shrink: 0; }
+  .lb-empty { color: #333; flex: 1; text-align: left; }
+  .lb-time-empty { color: #2a2a2a; flex-shrink: 0; }
 
-  /* Desktop: leaderboard pinned to the right */
+  /* Desktop: leaderboard pinned to top-right */
   @media (min-width: 768px) {
     #leaderboard {
       position: fixed;
-      right: 40px;
-      top: 50%;
-      transform: translateY(-50%);
+      right: 32px;
+      top: 24px;
       margin-top: 0;
       text-align: left;
-      width: 170px;
+      width: 200px;
     }
   }
 
@@ -739,7 +738,7 @@
 <button id="btn-how" onclick="showInstructions()">How to Play</button>
 
 <div id="leaderboard">
-  <div id="lb-title">Today's Best</div>
+  <div id="lb-title">Today's Leaderboard</div>
   <div id="lb-list"></div>
 </div>
 
