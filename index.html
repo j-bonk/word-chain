@@ -306,14 +306,14 @@
   /* ── Mobile layout (<600px = phones) ── */
   @media (max-width: 600px) {
     body {
-      justify-content: flex-start;
-      padding-top: 72px;
-      padding-bottom: 180px;
+      justify-content: center;
+      padding-top: 68px;
+      padding-bottom: 190px;
     }
 
-    /* Header */
+    /* Header — title left, timer right, word-count below title */
     #game-title { font-size: 1rem;  top: 16px; left: 14px; letter-spacing: 4px; }
-    #timer      { font-size: 1.9rem; top: 13px; }
+    #timer      { font-size: 1.9rem; top: 12px; left: auto; right: 14px; transform: none; }
     #word-count { font-size: 0.7rem; top: 40px; left: 14px; }
 
     /* Game tiles — use vw so they scale with any phone width */
