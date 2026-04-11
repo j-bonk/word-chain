@@ -326,29 +326,33 @@
       margin-top: 0;
       background: #0d0d0d;
       border-top: 1px solid #222;
-      padding: 8px 12px;
+      padding: 8px 0;
       box-sizing: border-box;
       z-index: 10;
     }
     #lb-title {
       margin-bottom: 6px;
+      padding: 0 16px;
     }
     #lb-list {
       display: flex;
       flex-direction: row;
-      gap: 8px;
+      gap: 0;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
+      justify-content: center;
+      padding: 0 16px;
     }
     #lb-list::-webkit-scrollbar { display: none; }
     .lb-entry {
       flex-direction: column;
       align-items: center;
-      min-width: 64px;
+      flex-shrink: 0;
+      min-width: 60px;
       border-bottom: none;
       border-right: 1px solid #222;
-      padding: 4px 8px 4px 0;
+      padding: 4px 12px;
       gap: 2px;
     }
     .lb-entry:last-child { border-right: none; }
@@ -356,6 +360,9 @@
     .lb-time { font-size: 0.75rem; }
     .lb-empty { font-size: 0.8rem; text-align: center; }
     .lb-time-empty { font-size: 0.75rem; }
+
+    /* Keyboard on top of nickname overlay on mobile */
+    #keyboard.nickname-mode { z-index: 200; }
 
     /* Game tiles — use vw so they scale with any phone width */
     .letter-box     { width: 11.5vw; height: 11.5vw; font-size: 5vw; border-radius: 6px; }
@@ -776,7 +783,7 @@
 </div>
 
 <div id="nickname-screen">
-  <div id="nickname-label">Enter Your Initials</div>
+  <div id="nickname-label">Your Handle</div>
   <div id="nickname-time-display"></div>
   <div id="nickname-boxes">
     <div class="nickname-box" id="nb-0"></div>
@@ -1945,6 +1952,10 @@ const keyboardEl = document.getElementById("keyboard");
 document.querySelectorAll(".kb-key").forEach(btn => {
   btn.addEventListener("pointerdown", e => {
     e.preventDefault();
+    if (keyboardEl.classList.contains('nickname-mode')) {
+      handleNicknameKey(btn.dataset.key);
+      return;
+    }
     if (!gameActive) return;
     handleKey(btn.dataset.key);
     resetIdle();
@@ -2290,13 +2301,32 @@ function showNicknamePrompt() {
   submitBtn.textContent = 'Submit';
   submitBtn.disabled = false;
   document.getElementById('nickname-screen').classList.add('show');
-  const inp = document.getElementById('nickname-input-hidden');
-  inp.value = '';
-  setTimeout(() => inp.focus(), 100);
+  if (isMobile()) {
+    keyboardEl.classList.add('active', 'nickname-mode');
+  } else {
+    const inp = document.getElementById('nickname-input-hidden');
+    inp.value = '';
+    setTimeout(() => inp.focus(), 100);
+  }
 }
 
 function closeNicknamePrompt() {
   document.getElementById('nickname-screen').classList.remove('show');
+  keyboardEl.classList.remove('active', 'nickname-mode');
+}
+
+function handleNicknameKey(key) {
+  if (key === 'Enter') {
+    if (nickInput.length > 0) submitScore();
+  } else if (key === 'Backspace') {
+    nickInput = nickInput.slice(0, -1);
+    updateNicknameBoxes();
+  } else if (/^[a-zA-Z]$/.test(key)) {
+    if (nickInput.length < 4) {
+      nickInput += key.toUpperCase();
+      updateNicknameBoxes();
+    }
+  }
 }
 
 async function submitScore() {
