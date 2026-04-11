@@ -322,6 +322,7 @@
       bottom: 0;
       left: 0;
       right: 0;
+      width: auto;
       margin: 0;
       background: #0d0d0d;
       border-top: 1px solid #222;
@@ -338,12 +339,10 @@
       display: flex;
       flex-direction: row;
       overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
       padding: 0 16px;
+      box-sizing: border-box;
     }
-    #lb-list::before,
-    #lb-list::after { content: ''; flex: 1; }
     #lb-list::-webkit-scrollbar { display: none; }
     .lb-entry {
       flex-direction: column;
@@ -354,7 +353,9 @@
       padding: 4px 14px;
       gap: 2px;
     }
-    .lb-entry:last-child { border-right: none; }
+    /* auto margins on first/last: centers when fits, scrolls from left when overflows */
+    .lb-entry:first-child { margin-left: auto; }
+    .lb-entry:last-child  { margin-right: auto; border-right: none; }
     .lb-name { text-align: center; font-size: 0.8rem; }
     .lb-time { font-size: 0.75rem; }
     .lb-empty { font-size: 0.8rem; text-align: center; }
