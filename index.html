@@ -780,15 +780,13 @@
 </div>
 
 <div id="nickname-screen">
-  <div id="nickname-label">Your Handle</div>
+  <div id="nickname-label">Enter Your Initials</div>
   <div id="nickname-time-display"></div>
   <div id="nickname-boxes">
     <div class="nickname-box" id="nb-0"></div>
     <div class="nickname-box" id="nb-1"></div>
-    <div class="nickname-box" id="nb-2"></div>
-    <div class="nickname-box" id="nb-3"></div>
   </div>
-  <input id="nickname-input-hidden" type="text" maxlength="4"
+  <input id="nickname-input-hidden" type="text" maxlength="2"
     autocomplete="off" autocorrect="off" autocapitalize="characters"
     spellcheck="false" inputmode="text" />
   <div id="nickname-btn-row">
@@ -2275,7 +2273,7 @@ async function loadLeaderboard() {
 let nickInput = '';
 
 function updateNicknameBoxes() {
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 2; i++) {
     const box = document.getElementById(`nb-${i}`);
     box.textContent = nickInput[i] || '';
     box.className = 'nickname-box';
@@ -2319,7 +2317,7 @@ function handleNicknameKey(key) {
     nickInput = nickInput.slice(0, -1);
     updateNicknameBoxes();
   } else if (/^[a-zA-Z]$/.test(key)) {
-    if (nickInput.length < 4) {
+    if (nickInput.length < 2) {
       nickInput += key.toUpperCase();
       updateNicknameBoxes();
     }
@@ -2352,7 +2350,7 @@ async function submitScore() {
 
 // Wire nickname hidden input → boxes
 document.getElementById('nickname-input-hidden').addEventListener('input', function() {
-  nickInput = this.value.replace(/[^a-zA-Z]/g, '').slice(0, 4);
+  nickInput = this.value.replace(/[^a-zA-Z]/g, '').slice(0, 2);
   this.value = nickInput;
   updateNicknameBoxes();
 });
