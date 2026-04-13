@@ -58,7 +58,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid time' });
     }
 
-    const clean = nickname.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    const clean = nickname.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
     if (!clean) return res.status(400).json({ error: 'Invalid nickname' });
 
     const { error } = await supabase

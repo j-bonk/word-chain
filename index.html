@@ -756,9 +756,50 @@
 
   /* word count indicator — hidden */
   #word-count { display: none; }
+
+  /* ── Rotate prompt (phones in landscape) ── */
+  #rotate-prompt {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #0d0d0d;
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    text-align: center;
+  }
+  #rotate-prompt svg {
+    width: 48px;
+    height: 48px;
+    stroke: #f0f0f0;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  #rotate-prompt p {
+    font-size: 0.8rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #888;
+  }
+  @media (orientation: landscape) and (max-height: 500px) {
+    #rotate-prompt { display: flex; }
+  }
 </style>
 </head>
 <body>
+
+<div id="rotate-prompt">
+  <svg viewBox="0 0 24 24">
+    <rect x="4" y="2" width="16" height="20" rx="2"/>
+    <path d="M17 22 A9 9 0 0 0 17 6" stroke-dasharray="3 2"/>
+    <polyline points="20 6 17 6 17 9"/>
+  </svg>
+  <p>Rotate to portrait</p>
+</div>
 
 <div id="flash"></div>
 <div id="game-title">Clause<div id="game-subtitle">A Daily Word Game</div></div>
@@ -2259,15 +2300,15 @@ async function loadLeaderboard() {
       const entry = document.createElement('div');
       entry.className = 'lb-entry';
       if (scores[i]) {
-        entry.innerHTML =
-          `<span class="lb-rank">#${i+1}</span>` +
-          `<span class="lb-name">${scores[i].nickname}</span>` +
-          `<span class="lb-time">${formatTime(scores[i].time_remaining)}</span>`;
+        const rank = document.createElement('span'); rank.className = 'lb-rank'; rank.textContent = `#${i+1}`;
+        const name = document.createElement('span'); name.className = 'lb-name'; name.textContent = scores[i].nickname;
+        const time = document.createElement('span'); time.className = 'lb-time'; time.textContent = formatTime(scores[i].time_remaining);
+        entry.append(rank, name, time);
       } else {
-        entry.innerHTML =
-          `<span class="lb-rank">#${i+1}</span>` +
-          `<span class="lb-empty">· · ·</span>` +
-          `<span class="lb-time-empty">--:--</span>`;
+        const rank  = document.createElement('span'); rank.className  = 'lb-rank';       rank.textContent  = `#${i+1}`;
+        const empty = document.createElement('span'); empty.className = 'lb-empty';      empty.textContent = '· · ·';
+        const dash  = document.createElement('span'); dash.className  = 'lb-time-empty'; dash.textContent  = '--:--';
+        entry.append(rank, empty, dash);
       }
       lb.appendChild(entry);
     }
@@ -2345,6 +2386,7 @@ async function submitScore() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nickname, time_remaining: timerSeconds })
     });
+    if (!res.ok) throw new Error();
     const data = await res.json();
     localStorage.setItem('submitted_today', getPacificDateStr());
     document.getElementById('nickname-rank-msg').textContent = `YOU RANKED #${data.rank} TODAY`;
