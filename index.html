@@ -2351,7 +2351,8 @@ function showNicknamePrompt() {
   } else {
     const inp = document.getElementById('nickname-input-hidden');
     inp.value = '';
-    setTimeout(() => inp.focus(), 100);
+    hiddenInput.blur();
+    inp.focus();
   }
 }
 
